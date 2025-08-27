@@ -6,8 +6,8 @@
     xmlns:local="clr-namespace:ArcTriggerUI"
     Title="ArcTriggerUI">
 
-    <ShellContent
-        Title="Home"
+    <ShellContent 
+        Title="ARC TRIGGER"
         ContentTemplate="{DataTemplate local:MainPage}"
         Route="MainPage" />
 
