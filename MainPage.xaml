@@ -162,8 +162,9 @@
            Padding="12">
 
             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+       
 
-                <!-- TOP ROW: inputs -->
+                    <!-- TOP ROW: inputs -->
                 <!-- TOP ROW: inputs (no horizontal scroll) -->
                 <Grid Grid.Row="0" Grid.Column="0">
                     <HorizontalStackLayout Spacing="8" Padding="12,2" HorizontalOptions="Fill">
