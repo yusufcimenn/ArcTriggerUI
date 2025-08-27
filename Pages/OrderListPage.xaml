@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:views="clr-namespace:ArcTriggerUI.Views"
+             x:Class="ArcTriggerUI.Pages.OrderListPage"
+             BackgroundColor="White">
+
+    <VerticalStackLayout Padding="16" Spacing="12">
+        <Label Text="ArcTrigger"
+               FontAttributes="Bold"
+               FontSize="20"
+               HorizontalOptions="Center"/>
+
+        <Button Text="+ Add Order"
+                BackgroundColor="Black"
+                TextColor="White"
+                Clicked="OnAddOrderClicked"/>
+
+        <ScrollView>
+            <VerticalStackLayout x:Name="OrdersStack" Spacing="8">
+                <!-- başlangıçta bir form -->
+                <views:OrderFormView/>
+            </VerticalStackLayout>
+        </ScrollView>
+    </VerticalStackLayout>
+</ContentPage>
