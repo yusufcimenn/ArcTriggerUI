@@ -1,5 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+
+    <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="ArcTriggerUI.MainPage"
              BackgroundColor="{DynamicResource PageBackgroundColor}">
@@ -151,7 +152,10 @@
 
     </ContentPage.Resources>
 
-    <Grid Padding="8" HorizontalOptions="Fill" VerticalOptions="Fill">
+
+    <ScrollView>
+        <Grid Padding="8" HorizontalOptions="Fill" VerticalOptions="Fill">
+        
         <Frame HorizontalOptions="Fill"
            VerticalOptions="Center"
            BackgroundColor="White"
@@ -167,23 +171,23 @@
                 <!-- TOP ROW: inputs (no horizontal scroll) -->
                 <Grid Grid.Row="0" Grid.Column="0">
                     <HorizontalStackLayout Spacing="8" Padding="12,2" HorizontalOptions="Fill">
-
-                        <!-- Stock -->
-                        <VerticalStackLayout Spacing="2" WidthRequest="150">
-                            <Label Text="Stock" Style="{StaticResource HeaderLabel}" />
-                            <Picker x:Name="StockPicker" Title="Symbol" WidthRequest="150"
+                        
+                            <!-- Stock -->
+                            <VerticalStackLayout Spacing="2" WidthRequest="150">
+                                <Label Text="Stock" Style="{StaticResource HeaderLabel}" />
+                                <Picker x:Name="StockPicker" Title="Symbol" WidthRequest="150"
               SelectedIndexChanged="OnSymbolChanged">
-                                <Picker.Items>
-                                    <x:String>AAPL</x:String>
-                                    <x:String>MSFT</x:String>
-                                    <x:String>NVDA</x:String>
-                                    <x:String>TSLA</x:String>
-                                    <x:String>GOOGL</x:String>
-                                    <x:String>AMZN</x:String>
-                                </Picker.Items>
-                            </Picker>
-                        </VerticalStackLayout>
-
+                                    <Picker.Items>
+                                        <x:String>AAPL</x:String>
+                                        <x:String>MSFT</x:String>
+                                        <x:String>NVDA</x:String>
+                                        <x:String>TSLA</x:String>
+                                        <x:String>GOOGL</x:String>
+                                        <x:String>AMZN</x:String>
+                                    </Picker.Items>
+                                </Picker>
+                            </VerticalStackLayout>
+                        
                         <!-- Trigger -->
                         <!-- Trigger -->
                         <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="170">
@@ -382,5 +386,7 @@
                 
             </Grid>
         </Frame>
+
     </Grid>
+    </ScrollView>
 </ContentPage>

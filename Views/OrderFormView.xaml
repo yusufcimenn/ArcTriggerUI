@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ArcTriggerUI.Views.OrderFormView">
+
+    <Frame Margin="0,8"
+           Padding="12"
+           BackgroundColor="White"
+           BorderColor="#E5E7EB"
+           CornerRadius="8"
+           HasShadow="False">
+
+        <Grid RowDefinitions="Auto,Auto"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="12"
+              RowSpacing="8">
+
+            <!-- İlk satır -->
+            <HorizontalStackLayout Grid.Row="0" Grid.Column="0" Spacing="8">
+
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Stock" FontSize="12"/>
+                    <Picker WidthRequest="100">
+                        <Picker.Items>
+                            <x:String>AAPL</x:String>
+                            <x:String>MSFT</x:String>
+                            <x:String>NVDA</x:String>
+                            <x:String>TSLA</x:String>
+                            <x:String>GOOGL</x:String>
+                            <x:String>AMZN</x:String>
+                        </Picker.Items>
+                    </Picker>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Trigger Level" FontSize="12"/>
+                    <Entry WidthRequest="80" Text="100.00" Keyboard="Numeric"/>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Type" FontSize="12"/>
+                    <HorizontalStackLayout>
+                        <RadioButton Content="Call" GroupName="{x:Reference Root}" IsChecked="True"/>
+                        <RadioButton Content="Put" GroupName="{x:Reference Root}"/>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Order" FontSize="12"/>
+                    <HorizontalStackLayout>
+                        <RadioButton Content="Mkt" GroupName="{x:Reference Root}" IsChecked="True"/>
+                        <RadioButton Content="Lmt" GroupName="{x:Reference Root}"/>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Offset" FontSize="12"/>
+                    <Entry WidthRequest="60" Placeholder=".05" Keyboard="Numeric"/>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Strike" FontSize="12"/>
+                    <Entry WidthRequest="60" Placeholder="Strike"/>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="Expiry" FontSize="12"/>
+                    <Entry WidthRequest="100" Placeholder="dd/mm/yyyy"/>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="2">
+                    <Label Text=" " FontSize="12"/>
+                    <CheckBox/>
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+
+            <!-- Sağ aksiyon butonları -->
+            <HorizontalStackLayout Grid.Row="0" Grid.Column="1" Spacing="6" VerticalOptions="End">
+                <Button Text="Invalidate" BackgroundColor="#EF4444" TextColor="White" HeightRequest="30"/>
+                <Button Text="Breakeven" BackgroundColor="#E5E7EB" TextColor="Black" HeightRequest="30"/>
+                <Button Text="Place Order" BackgroundColor="Black" TextColor="White" HeightRequest="30"/>
+            </HorizontalStackLayout>
+
+            <!-- Alt satır -->
+            <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="12">
+
+                <VerticalStackLayout>
+                    <Label Text="Position Size" FontSize="12"/>
+                    <HorizontalStackLayout Spacing="4">
+                        <Entry WidthRequest="70" Placeholder="Amount"/>
+                        <Button Text="$5K"/>
+                        <Button Text="$10K"/>
+                        <Button Text="$25K"/>
+                        <Button Text="$50K"/>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout>
+                    <Label Text="Stop Loss" FontSize="12"/>
+                    <HorizontalStackLayout Spacing="4">
+                        <Entry WidthRequest="70" Placeholder="Amount"/>
+                        <Button Text="$0.10"/>
+                        <Button Text="$0.20"/>
+                        <Button Text="$0.50"/>
+                        <Button Text="$1.00"/>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout>
+                    <Label Text="Profit Taking" FontSize="12"/>
+                    <HorizontalStackLayout Spacing="4">
+                        <Entry WidthRequest="70" Placeholder="%"/>
+                        <Button Text="10%"/>
+                        <Button Text="20%"/>
+                        <Button Text="30%"/>
+                        <Button Text="Rem"/>
+                        <Button Text="All"/>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+        </Grid>
+    </Frame>
+</ContentView>
