@@ -165,7 +165,7 @@
            HasShadow="False"
            Padding="12">
 
-            <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+            <Grid RowDefinitions="Auto,Auto,Auto , *" ColumnDefinitions="*,Auto">
        
 
                     <!-- TOP ROW: inputs -->
@@ -300,13 +300,23 @@
                 </Grid>
 
 
-                <!-- TOP RIGHT: Place Order -->
-                <Button Grid.Row="0" Grid.Column="1"
-                     Text="Place Order"
-                     Style="{StaticResource PrimaryAction}"
-                     Clicked="OnCreateOrderClicked"/>
+                    <!-- RIGHT COLUMN: Place Order + Add Order + Actions -->
+                    <VerticalStackLayout Grid.Row="0" Grid.Column="1" Grid.RowSpan="2"
+                     Spacing="10" HorizontalOptions="End" Padding="0,0,12,0">
+                        <Button Text="Place Order"
+                        Style="{StaticResource PrimaryAction}"
+                        Clicked="OnCreateOrderClicked"/>
 
-                <!-- BOTTOM LEFT: Entry + chip buttons -->
+                         <!-- ALT ALTA: Add Order -->
+                        <Button Text="+ Add Order"
+                        Style="{StaticResource PrimaryAction}"
+                        Clicked="OnAddOrderClicked"/>
+                      
+                    </VerticalStackLayout>
+
+
+
+                    <!-- BOTTOM LEFT: Entry + chip buttons -->
                 <!-- BOTTOM: entries + chip presets (no horizontal scroll) -->
                 <Grid Grid.Row="1" Grid.Column="0">
                     <HorizontalStackLayout Spacing="10" Padding="6,4">
@@ -360,14 +370,7 @@
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
 
-                        <!-- +Add Order Butonu -->
-                        <Button Text="+ Add Order"
-                            Grid.Row="3" Grid.ColumnSpan="2"
-                            HorizontalOptions="Center"
-                            Margin="0,6,0,6"
-                            Clicked="OnAddOrderClicked"
-                            Style="{StaticResource PrimaryAction}"/>
-
+                       
                     </HorizontalStackLayout>
                 </Grid>
 
