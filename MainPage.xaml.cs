@@ -1,4 +1,6 @@
-﻿namespace ArcTriggerUI
+﻿using ArcTriggerUI.Dashboard;
+
+namespace ArcTriggerUI
 {
 
     public class Order
@@ -29,6 +31,12 @@
         private void OnAutoFetchClicked(object sender, EventArgs e)
         {
             // TODO implement later
+        }
+
+        private void OnAddOrderClicked(object sender, EventArgs e)
+        {
+            var newOrder = new OrderFrame();
+            OrdersContainer.Children.Add(newOrder);
         }
 
         // Symbol Picker
