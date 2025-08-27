@@ -319,7 +319,13 @@
                         <Button Text="+ Add Order"
                         Style="{StaticResource ActionOcean}"
                         Clicked="OnAddOrderClicked"/>
-                      
+                        <Entry x:Name="numberEntry"
+       Placeholder="Enter 1-9"
+       Keyboard="Numeric"
+       MaxLength="1"
+       TextChanged="OnNumberEntryTextChanged"/>
+
+
                     </VerticalStackLayout>
 
 

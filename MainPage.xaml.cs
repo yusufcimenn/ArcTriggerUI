@@ -28,6 +28,42 @@ namespace ArcTriggerUI
         {
             InitializeComponent();
         }
+        private void OnSendClicked(object sender, EventArgs e)
+        {
+            if (int.TryParse(numberEntry.Text, out int start))
+            {
+                if (numberEntry.Text == null) 
+                { 
+                    var newOrder = new OrderFrame();
+                OrdersContainer.Children.Add(newOrder);
+                }
+                else
+                {
+                    for (int i = 0; i < start; i++)
+                    {
+                        var newOrder = new OrderFrame();
+                        OrdersContainer.Children.Add(newOrder);
+                    }
+                }
+            } 
+
+
+           
+
+        }
+        private void OnNumberEntryTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(e.NewTextValue))
+                return;
+
+            // Girilen karakteri kontrol et
+            if (!int.TryParse(e.NewTextValue, out int value) || value < 1 || value > 9)
+            {
+                // Geçersizse eski değeri geri yükle
+                ((Entry)sender).Text = e.OldTextValue;
+            }
+        }
+
         private void OnAutoFetchClicked(object sender, EventArgs e)
         {
             // TODO implement later
@@ -35,8 +71,20 @@ namespace ArcTriggerUI
 
         private void OnAddOrderClicked(object sender, EventArgs e)
         {
-            var newOrder = new OrderFrame();
-            OrdersContainer.Children.Add(newOrder);
+            if (int.TryParse(numberEntry.Text, out int start))
+            {
+              
+                    for (int i = 0; i < start; i++)
+                    {
+                        var newOrder = new OrderFrame();
+                        OrdersContainer.Children.Add(newOrder);
+                    }
+            }
+            else
+            {
+                var newOrder = new OrderFrame();
+                OrdersContainer.Children.Add(newOrder);
+            }
         }
 
         // Symbol Picker
