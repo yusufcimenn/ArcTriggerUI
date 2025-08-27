@@ -114,6 +114,14 @@
             <Setter Property="TextColor" Value="#111827" />
             <Setter Property="BorderWidth" Value="0" />
         </Style>
+        <Style x:Key="ActionOcean" TargetType="Button" BasedOn="{StaticResource BaseButton}">
+            <Setter Property="HeightRequest" Value="30" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="BackgroundColor" Value="#0694F9" />
+            <Setter Property="TextColor" Value="#FFFFFF" />
+            <Setter Property="BorderWidth" Value="0" />
+        </Style>
 
         <!-- Place Order (koyu yeşil) -->
         <Style x:Key="PrimaryAction" TargetType="Button" BasedOn="{StaticResource BaseButton}">
@@ -309,7 +317,7 @@
 
                          <!-- ALT ALTA: Add Order -->
                         <Button Text="+ Add Order"
-                        Style="{StaticResource PrimaryAction}"
+                        Style="{StaticResource ActionOcean}"
                         Clicked="OnAddOrderClicked"/>
                       
                     </VerticalStackLayout>

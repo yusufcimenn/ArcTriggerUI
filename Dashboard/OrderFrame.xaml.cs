@@ -16,6 +16,7 @@ public class Order
     public decimal ProfitTaking { get; set; }
     public bool AlphaFlag { get; set; }
 
+
     public override string ToString()
     {
         return $"Symbol: {Symbol}, Trigger: {TriggerPrice}, Type: {OrderType}, Mode: {OrderMode}, Offset: {Offset}, Strike: {Strike}, Expiry: {Expiry}, Position: {PositionSize}, StopLoss: {StopLoss}, Profit: {ProfitTaking}, Alpha: {AlphaFlag}";
@@ -24,16 +25,20 @@ public class Order
 
 public partial class OrderFrame : ContentView
 {
+
     public OrderFrame()
     {
         InitializeComponent();
     }
 
-    //private void OnAddOrderClicked(object sender, EventArgs e)
-    //{
-    //    var newOrder = new OrderFrame();
-    //    OrdersContainer.Children.Add(newOrder);
-    //}
+    private void OnCancelClicked(object sender, EventArgs e){
+    
+        if(this.Parent is Layout parentlayout)
+        {
+            parentlayout.Children.Remove(this);
+        }
+    }
+
 
     // Symbol Picker
     private void OnSymbolChanged(object sender, EventArgs e)
