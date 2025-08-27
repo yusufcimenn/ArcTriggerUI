@@ -29,6 +29,12 @@ public partial class OrderFrame : ContentView
         InitializeComponent();
     }
 
+    private void OnAddOrderClicked(object sender, EventArgs e)
+    {
+        var newOrder = new OrderFrame();
+        OrdersContainer.Children.Add(newOrder);
+    }
+
     // Symbol Picker
     private void OnSymbolChanged(object sender, EventArgs e)
     {

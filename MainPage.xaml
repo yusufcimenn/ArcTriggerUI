@@ -354,7 +354,15 @@
                                 <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnBreakevenClicked"/>
                             </HorizontalStackLayout>
                         </VerticalStackLayout>
-                        
+
+                        <!-- +Add Order Butonu -->
+                        <Button Text="+ Add Order"
+                            Grid.Row="3" Grid.ColumnSpan="2"
+                            HorizontalOptions="Center"
+                            Margin="0,6,0,6"
+                            Clicked="OnAddOrderClicked"
+                            Style="{StaticResource PrimaryAction}"/>
+
                     </HorizontalStackLayout>
                 </Grid>
 
@@ -364,6 +372,14 @@
                TextColor="{DynamicResource PrimaryTextColor}"
                FontSize="14"
                Margin="6,10,6,0"/>
+
+                <!-- Orders Container -->
+                <VerticalStackLayout x:Name="OrdersContainer"
+                    Grid.Row="3" Grid.ColumnSpan="2"
+                    Spacing="8"
+                    Padding="6"/>
+
+                
             </Grid>
         </Frame>
     </Grid>
