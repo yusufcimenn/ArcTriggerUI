@@ -131,8 +131,8 @@
 
                         <!-- Stock -->
                         <VerticalStackLayout Spacing="2">
-                            <Label Text="Stock" Style="{StaticResource HeaderLabel}" />
-                            <Picker x:Name="StockPicker" Title="Symbol" SelectedIndexChanged="OnSymbolChanged" ScaleX="0" ScaleY="0" HeightRequest="0">
+                            <Label Text="Stock" TextColor="Black" />
+                            <Picker x:Name="StockPicker" Title="Symbol" SelectedIndexChanged="OnSymbolChanged" HeightRequest="35" Margin="0,0,0,5" BackgroundColor="#DEDEDE" TextColor="#000000" TitleColor="#000000" HorizontalTextAlignment="End" HorizontalOptions="Start">
                                 <Picker.Items>
                                     <x:String>AAPL</x:String>
                                     <x:String>MSFT</x:String>
@@ -199,7 +199,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Picker x:Name="StrikePicker" Grid.Column="0" Title="Strike" SelectedIndexChanged="OnStrikeChanged">
+                                <Picker x:Name="StrikePicker" Grid.Column="0" Title="Strike" SelectedIndexChanged="OnStrikeChanged" Margin="0,0,0,5" BackgroundColor="#DEDEDE" TextColor="#000000" TitleColor="#000000" HorizontalTextAlignment="End" HorizontalOptions="Start" HeightRequest="35">
                                     <Picker.Items>
                                         <x:String>120</x:String>
                                         <x:String>125</x:String>
@@ -217,7 +217,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Picker x:Name="ExpPicker" Grid.Column="1" Title="dd/mm/yyyy" SelectedIndexChanged="OnExpirationChanged">
+                                <Picker x:Name="ExpPicker" Grid.Column="1" Title="dd/mm/yyyy" SelectedIndexChanged="OnExpirationChanged" BackgroundColor="#DEDEDE" TextColor="#000000" TitleColor="#000000" HorizontalTextAlignment="End" HorizontalOptions="Start" HeightRequest="35" Margin="0,0,0,5">
                                     <Picker.Items>
                                         <x:String>2025-09-20</x:String>
                                         <x:String>2025-10-18</x:String>
@@ -226,6 +226,7 @@
                                     </Picker.Items>
                                 </Picker>
                             </Grid>
+                            
                         </VerticalStackLayout>
 
 
