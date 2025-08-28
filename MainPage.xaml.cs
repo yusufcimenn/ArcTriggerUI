@@ -1,4 +1,6 @@
 ﻿using ArcTriggerUI.Dashboard;
+using System.Globalization;
+using System.Text.Json;
 
 namespace ArcTriggerUI
 {
@@ -22,11 +24,22 @@ namespace ArcTriggerUI
             return $"Symbol: {Symbol}, Trigger: {TriggerPrice}, Type: {OrderType}, Mode: {OrderMode}, Offset: {Offset}, Strike: {Strike}, Expiry: {Expiry}, Position: {PositionSize}, StopLoss: {StopLoss}, Profit: {ProfitTaking}, Alpha: {AlphaFlag}";
         }
     }
+
     public partial class MainPage : ContentPage
     {
+        private readonly List<string> _catalog = new()
+        {
+            "500", "750", "1K", "1.5K", "2K", "2.5K", "5K", "10K", "25K", "50K"
+        };
+
+        // Always 3 slots
+        private readonly string[] _selected = new[] { "5K", "10K", "25K" };
+        private const string PrefKey = "possize.hotbuttons.v1";
         public MainPage()
         {
             InitializeComponent();
+            LoadSelected();
+            ApplySelectedToButtons();
         }
         private void OnSendClicked(object sender, EventArgs e)
         {
@@ -47,10 +60,92 @@ namespace ArcTriggerUI
                 }
             } 
 
-
-           
-
         }
+
+        /// /// OZELLESTIRILEBILIR 
+        private void ApplySelectedToButtons()
+        {
+            BtnPos1.Text = $"${_selected[0]}";
+            BtnPos2.Text = $"${_selected[1]}";
+            BtnPos3.Text = $"${_selected[2]}";
+        }
+
+        private void SaveSelected()
+        {
+            var json = JsonSerializer.Serialize(_selected);
+            Preferences.Set(PrefKey, json);
+        }
+        private void LoadSelected()
+        {
+            var json = Preferences.Get(PrefKey, "");
+            if (string.IsNullOrWhiteSpace(json)) return;
+            try
+            {
+                var arr = JsonSerializer.Deserialize<string[]>(json);
+                if (arr != null && arr.Length >= 3)
+                {
+                    _selected[0] = arr[0];
+                    _selected[1] = arr[1];
+                    _selected[2] = arr[2];
+                }
+            }
+            catch { /* ignore */ }
+        }
+        private async void OnAddHotButtonClicked(object sender, EventArgs e)
+        {
+            // prevent duplicates: offer only not-selected ones
+            var used = new HashSet<string>(_selected, StringComparer.OrdinalIgnoreCase);
+            var options = _catalog.Where(x => !used.Contains(x)).ToList();
+            options.Add("Custom...");
+
+            var choice = await DisplayActionSheet("Choose hot button", "Cancel", null, options.ToArray());
+            if (string.IsNullOrWhiteSpace(choice) || choice == "Cancel")
+                return;
+
+            if (choice == "Custom...")
+            {
+                var input = await DisplayPromptAsync(
+                    "Custom amount",
+                    "Enter amount like 1.5K or 1500",
+                    "OK", "Cancel", "1.5K");
+                if (string.IsNullOrWhiteSpace(input)) return;
+                choice = NormalizeLabel(input);
+            }
+
+            // Replace first slot as requested
+            _selected[0] = NormalizeLabel(choice);
+            SaveSelected();
+            ApplySelectedToButtons();
+        }
+        private static int ParseHotToInt(string text)
+        {
+            var s = text.Trim().ToUpperInvariant().Replace("$", "");
+            if (s.EndsWith("K"))
+            {
+                var n = s[..^1];
+                if (double.TryParse(n, NumberStyles.Float, CultureInfo.InvariantCulture, out var k))
+                    return (int)Math.Round(k * 1000.0);
+            }
+            if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
+                return v;
+            return 0;
+        }
+        private static string NormalizeLabel(string s)
+        {
+            var t = s.Trim().ToUpperInvariant().Replace("$", "");
+            if (t.EndsWith("K")) return t;
+
+            if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
+            {
+                if (v >= 1000)
+                    return (v / 1000.0).ToString("0.#", CultureInfo.InvariantCulture) + "K";
+                return v.ToString("0", CultureInfo.InvariantCulture);
+            }
+            return t;
+        }
+
+        //////////////// OZELLESTIRILEBILIR
+
         private void OnNumberEntryTextChanged(object sender, TextChangedEventArgs e)
         {
             if (string.IsNullOrEmpty(e.NewTextValue))
@@ -201,9 +296,11 @@ namespace ArcTriggerUI
 
         private void OnPositionPresetClicked(object sender, EventArgs e)
         {
-            if (sender is Button btn && this.FindByName<Entry>("PositionEntry") is Entry entry)
+            if (sender is Button b)
             {
-                entry.Text = btn.Text.Replace("$", "");
+                var val = ParseHotToInt(b.Text);
+                if (val > 0)
+                    PositionEntry.Text = val.ToString(CultureInfo.InvariantCulture);
             }
         }
 

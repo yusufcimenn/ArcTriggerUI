@@ -335,20 +335,46 @@
                 <Grid Grid.Row="1" Grid.Column="0">
                     <HorizontalStackLayout Spacing="10" Padding="6,4">
 
-                        <!-- Position Size -->
-                        <Grid HorizontalOptions="Start" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" Padding="12,0">
-                            <Label Grid.Row="0" Grid.ColumnSpan="2" Text="Position Size ($)" Style="{StaticResource HeaderLabel}" />
-                            <Entry x:Name="PositionEntry" Grid.Row="1" Grid.Column="0" WidthRequest="120"
-             HorizontalOptions="Start" HorizontalTextAlignment="Center"
-             Placeholder="500" Keyboard="Numeric" TextChanged="OnPositionTextChanged"/>
-                            <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                <Button Text="$5K"  Style="{StaticResource ChipButton}" Clicked="OnPositionPresetClicked"/>
-                                <Button Text="$10K" Style="{StaticResource ChipButton}" Clicked="OnPositionPresetClicked"/>
-                                <Button Text="$25K" Style="{StaticResource ChipButton}" Clicked="OnPositionPresetClicked"/>
-                            </HorizontalStackLayout>
-                        </Grid>
+                            <!-- Position Size -->
+                            <Grid HorizontalOptions="Start"
+                      RowDefinitions="Auto,Auto"
+                      ColumnDefinitions="Auto,*"
+                      Padding="12,0">
+                                                <Label Grid.Row="0" Grid.ColumnSpan="2"
+                           Text="Position Size ($)"
+                           Style="{StaticResource HeaderLabel}" />
 
-                        <!-- Stop Loss -->
+                                                <Entry x:Name="PositionEntry"
+                           Grid.Row="1" Grid.Column="0"
+                           WidthRequest="120"
+                           HorizontalOptions="Start"
+                           HorizontalTextAlignment="Center"
+                           Placeholder="500"
+                           Keyboard="Numeric"
+                           TextChanged="OnPositionTextChanged" />
+
+                                <HorizontalStackLayout x:Name="HotButtonsPanel"
+                           Grid.Row="1" Grid.Column="1"
+                           Spacing="4" VerticalOptions="Center">
+                                    <Button x:Name="BtnPos1" Text="$5K"
+                            Style="{StaticResource ChipButton}"
+                            Clicked="OnPositionPresetClicked"/>
+                                                <Button x:Name="BtnPos2" Text="$10K"
+                            Style="{StaticResource ChipButton}"
+                            Clicked="OnPositionPresetClicked"/>
+                                                <Button x:Name="BtnPos3" Text="$25K"
+                            Style="{StaticResource ChipButton}"
+                            Clicked="OnPositionPresetClicked"/>
+
+                                                <!-- + butonu -->
+                                                <Button Text="+"
+                            Style="{StaticResource ChipButton}"
+                            Clicked="OnAddHotButtonClicked"/>
+                                </HorizontalStackLayout>
+                            </Grid>
+
+
+                            <!-- Stop Loss -->
                         <Grid HorizontalOptions="Start" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" Margin="8,0,0,0" Padding="12,0">
                             <Label Grid.Row="0" Grid.ColumnSpan="2" Text="Stop Loss ($)" Style="{StaticResource HeaderLabel}" />
                             <Entry x:Name="StopLossEntry" Grid.Row="1" Grid.Column="0" WidthRequest="140"
