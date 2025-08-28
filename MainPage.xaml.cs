@@ -26,11 +26,20 @@ namespace ArcTriggerUI
     }
 
     public partial class MainPage : ContentPage
+
     {
-        private readonly List<string> _catalog = new()
+        class SectionConfig
         {
-            "500", "750", "1K", "1.5K", "2K", "2.5K", "5K", "10K", "25K", "50K"
-        };
+            public string Id = "";
+            public SectionMode Mode;
+            public List<string> Catalog = new();
+            public string[] Selected = new string[3];
+            public string PrefKey = "";
+            public Button[] Slots = Array.Empty<Button>();
+            public Entry TargetEntry = null!;
+        }
+        readonly Dictionary<string, SectionConfig> sections = new();
+        enum SectionMode { KAmount, Dollar, Percent, Decimal }
 
         // Always 3 slots
         private readonly string[] _selected = new[] { "5K", "10K", "25K" };
@@ -38,8 +47,7 @@ namespace ArcTriggerUI
         public MainPage()
         {
             InitializeComponent();
-            LoadSelected();
-            ApplySelectedToButtons();
+            InitHotSections();
         }
         private void OnSendClicked(object sender, EventArgs e)
         {
@@ -63,85 +71,211 @@ namespace ArcTriggerUI
         }
 
         /// /// OZELLESTIRILEBILIR 
-        private void ApplySelectedToButtons()
+        void InitHotSections()
         {
-            BtnPos1.Text = $"${_selected[0]}";
-            BtnPos2.Text = $"${_selected[1]}";
-            BtnPos3.Text = $"${_selected[2]}";
+            sections["pos"] = new SectionConfig
+            {
+                Id = "pos",
+                Mode = SectionMode.KAmount,
+                Catalog = new() { "500", "750", "1K", "1.5K", "2K", "2.5K", "5K", "10K", "25K", "50K" },
+                Selected = new[] { "5K", "10K", "25K" },
+                PrefKey = "hot.pos.v1",
+                Slots = new[] { BtnPos1, BtnPos2, BtnPos3 },
+                TargetEntry = PositionEntry
+            };
+
+            sections["stop"] = new SectionConfig
+            {
+                Id = "stop",
+                Mode = SectionMode.Dollar,
+                Catalog = new() { "0.10", "0.15", "0.20", "0.25", "0.50", "0.75", "1.00", "1.50", "2.00" },
+                Selected = new[] { "0.20", "0.50", "1.00" },
+                PrefKey = "hot.stop.v1",
+                Slots = new[] { BtnStop1, BtnStop2, BtnStop3 },
+                TargetEntry = StopLossEntry
+            };
+
+            sections["prof"] = new SectionConfig
+            {
+                Id = "prof",
+                Mode = SectionMode.Percent,
+                Catalog = new() { "5%", "10%", "15%", "20%", "25%", "30%", "40%", "50%" },
+                Selected = new[] { "10%", "20%", "30%" },
+                PrefKey = "hot.prof.v1",
+                Slots = new[] { BtnProf1, BtnProf2, BtnProf3 },
+                TargetEntry = ProfitEntry
+            };
+            sections["off"] = new SectionConfig
+            {
+                Id = "off",
+                Mode = SectionMode.Decimal,
+                Catalog = new() { "0.01", "0.02", "0.03", "0.05", "0.10", "0.15", "0.20", "0.25" },
+                Selected = new[] { "0.05", "0.10", "0.15" },   // default 3 slot
+                PrefKey = "hot.off.v1",
+                Slots = new[] { BtnOff1, BtnOff2 },
+                TargetEntry = OffsetEntry
+            };
+
+
+            foreach (var s in sections.Values)
+            {
+                LoadSection(s);
+                ApplySectionButtons(s);
+            }
         }
 
-        private void SaveSelected()
+        // Tum preset butonlari icin tek handler
+        void OnHotPresetClicked(object sender, EventArgs e)
         {
-            var json = JsonSerializer.Serialize(_selected);
-            Preferences.Set(PrefKey, json);
+            if (sender is not Button b || b.CommandParameter is not string id) return;
+            if (!sections.TryGetValue(id, out var s)) return;
+
+            var valForEntry = ValueForEntry(b.Text, s.Mode);
+            s.TargetEntry.Text = valForEntry;
         }
-        private void LoadSelected()
+
+        // Tum + butonlari icin tek handler
+        async void OnHotAddClicked(object sender, EventArgs e)
         {
-            var json = Preferences.Get(PrefKey, "");
+            if (sender is not Button b || b.CommandParameter is not string id) return;
+            if (!sections.TryGetValue(id, out var s)) return;
+
+            var used = new HashSet<string>(s.Selected, StringComparer.OrdinalIgnoreCase);
+            var options = s.Catalog.Where(x => !used.Contains(x)).ToList();
+            options.Add("Custom...");
+
+            var title = id == "pos" ? "Choose position size"
+                     : id == "stop" ? "Choose stop loss"
+                     : "Choose profit percent";
+            var prompt = id == "pos" ? "Enter like 1.5K or 1500"
+                     : id == "stop" ? "Enter dollars like 0.75"
+                     : "Enter percent like 12.5 or 12.5%";
+
+            var choice = await DisplayActionSheet(title, "Cancel", null, options.ToArray());
+            if (string.IsNullOrWhiteSpace(choice) || choice == "Cancel") return;
+
+            if (choice == "Custom...")
+            {
+                var input = await DisplayPromptAsync(title, prompt, "OK", "Cancel");
+                if (string.IsNullOrWhiteSpace(input)) return;
+                choice = input.Trim();
+            }
+
+            s.Selected[0] = NormalizeForMode(choice, s.Mode); // ilk slotu degistir
+            SaveSection(s);
+            ApplySectionButtons(s);
+        }
+
+        // Yardimci fonksiyonlar
+        void ApplySectionButtons(SectionConfig s)
+        {
+            for (int i = 0; i < s.Slots.Length && i < s.Selected.Length; i++)
+                s.Slots[i].Text = DisplayForButton(s.Selected[i], s.Mode);
+        }
+
+        void SaveSection(SectionConfig s)
+        {
+            Preferences.Set(s.PrefKey, JsonSerializer.Serialize(s.Selected));
+        }
+
+        void LoadSection(SectionConfig s)
+        {
+            var json = Preferences.Get(s.PrefKey, "");
             if (string.IsNullOrWhiteSpace(json)) return;
             try
             {
                 var arr = JsonSerializer.Deserialize<string[]>(json);
-                if (arr != null && arr.Length >= 3)
-                {
-                    _selected[0] = arr[0];
-                    _selected[1] = arr[1];
-                    _selected[2] = arr[2];
-                }
+                if (arr == null) return;
+                var n = Math.Min(arr.Length, s.Selected.Length);
+                for (int i = 0; i < n; i++)
+                    s.Selected[i] = arr[i];
             }
-            catch { /* ignore */ }
+            catch { }
         }
-        private async void OnAddHotButtonClicked(object sender, EventArgs e)
+
+
+        // Formatlama ve parse
+        static string NormalizeForMode(string input, SectionMode mode)
         {
-            // prevent duplicates: offer only not-selected ones
-            var used = new HashSet<string>(_selected, StringComparer.OrdinalIgnoreCase);
-            var options = _catalog.Where(x => !used.Contains(x)).ToList();
-            options.Add("Custom...");
-
-            var choice = await DisplayActionSheet("Choose hot button", "Cancel", null, options.ToArray());
-            if (string.IsNullOrWhiteSpace(choice) || choice == "Cancel")
-                return;
-
-            if (choice == "Custom...")
+            var t = input.Trim().ToUpperInvariant().Replace("$", "");
+            switch (mode)
             {
-                var input = await DisplayPromptAsync(
-                    "Custom amount",
-                    "Enter amount like 1.5K or 1500",
-                    "OK", "Cancel", "1.5K");
-                if (string.IsNullOrWhiteSpace(input)) return;
-                choice = NormalizeLabel(input);
-            }
+                case SectionMode.KAmount:
+                    if (t.EndsWith("K")) return t;
+                    if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v1))
+                        return v1 >= 1000 ? (v1 / 1000.0).ToString("0.#", CultureInfo.InvariantCulture) + "K"
+                                          : v1.ToString("0", CultureInfo.InvariantCulture);
+                    return t;
 
-            // Replace first slot as requested
-            _selected[0] = NormalizeLabel(choice);
-            SaveSelected();
-            ApplySelectedToButtons();
-        }
-        private static int ParseHotToInt(string text)
-        {
-            var s = text.Trim().ToUpperInvariant().Replace("$", "");
-            if (s.EndsWith("K"))
-            {
-                var n = s[..^1];
-                if (double.TryParse(n, NumberStyles.Float, CultureInfo.InvariantCulture, out var k))
-                    return (int)Math.Round(k * 1000.0);
-            }
-            if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
-                return v;
-            return 0;
-        }
-        private static string NormalizeLabel(string s)
-        {
-            var t = s.Trim().ToUpperInvariant().Replace("$", "");
-            if (t.EndsWith("K")) return t;
+                case SectionMode.Dollar:
+                    t = t.Replace("%", "");
+                    if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v2))
+                        return v2.ToString("0.00", CultureInfo.InvariantCulture);
+                    return t;
 
-            if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
-            {
-                if (v >= 1000)
-                    return (v / 1000.0).ToString("0.#", CultureInfo.InvariantCulture) + "K";
-                return v.ToString("0", CultureInfo.InvariantCulture);
+                case SectionMode.Percent:
+                    t = t.Replace("%", "");
+                    if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v3))
+                        return v3.ToString("0.#", CultureInfo.InvariantCulture) + "%";
+                    return t.EndsWith("%") ? t : t + "%";
+
+                case SectionMode.Decimal:
+                    t = t.Replace("%", "");
+                    if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v4))
+                        return v4.ToString("0.00", CultureInfo.InvariantCulture);
+                    return t;
             }
             return t;
+        }
+
+        static string DisplayForButton(string normalized, SectionMode mode)
+        {
+            return mode switch
+            {
+                SectionMode.KAmount => "$" + normalized,
+                SectionMode.Dollar => "$" + normalized,
+                SectionMode.Percent => normalized,
+                SectionMode.Decimal => normalized,
+                _ => normalized
+            };
+        }
+
+        static string ValueForEntry(string buttonText, SectionMode mode)
+        {
+            var s = buttonText.Trim().ToUpperInvariant().Replace("$", "");
+            switch (mode)
+            {
+                case SectionMode.KAmount:
+                    if (s.EndsWith("K"))
+                    {
+                        var n = s[..^1];
+                        if (double.TryParse(n, NumberStyles.Float, CultureInfo.InvariantCulture, out var k))
+                            return ((int)Math.Round(k * 1000.0)).ToString(CultureInfo.InvariantCulture);
+                    }
+                    if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var val))
+                        return val.ToString(CultureInfo.InvariantCulture);
+                    return "";
+
+                case SectionMode.Dollar:
+                    s = s.Replace("%", "");
+                    if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+                        return d.ToString("0.00", CultureInfo.InvariantCulture);
+                    return "";
+
+                case SectionMode.Percent:
+                    s = s.Replace("%", "");
+                    if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var p))
+                        return p.ToString("0.#", CultureInfo.InvariantCulture);
+                    return "";
+
+                case SectionMode.Decimal:
+                    s = s.Replace("%", "");
+                    if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
+                        return dec.ToString("0.00", CultureInfo.InvariantCulture);
+                    return "";
+
+            }
+            return "";
         }
 
         //////////////// OZELLESTIRILEBILIR
@@ -298,9 +432,9 @@ namespace ArcTriggerUI
         {
             if (sender is Button b)
             {
-                var val = ParseHotToInt(b.Text);
-                if (val > 0)
-                    PositionEntry.Text = val.ToString(CultureInfo.InvariantCulture);
+                //var val = ParseHotToInt(b.Text);
+                //if (val > 0)
+                //    PositionEntry.Text = val.ToString(CultureInfo.InvariantCulture);
             }
         }
 
