@@ -730,5 +730,74 @@ namespace ArcTriggerUI
 
 
         #endregion
+
+        private async void OnPresetRightClick(object sender, TappedEventArgs e)
+        {
+            if (sender is not Button btn) return;
+
+            // Hangi grup? ("off", "pos", "stop", "prof")
+            var group = (btn.CommandParameter as string)?.ToLowerInvariant() ?? "";
+
+            // Mevcut yazıdan sayıyı çıkar
+            string oldLabel = btn.Text?.Trim() ?? "";
+            string numericPart = oldLabel.Replace("$", "").Replace("%", "").Trim()
+                                         .Replace(',', '.'); // TR ondalık uyumu
+
+            decimal oldVal = 0m;
+            decimal.TryParse(numericPart, NumberStyles.Any, CultureInfo.InvariantCulture, out oldVal);
+
+            // Birim belirle
+            string prefix = group is "pos" or "stop" ? "$" : "";
+            string suffix = group == "prof" ? "%" : "";
+
+            // Prompt aç
+            string input = await DisplayPromptAsync(
+                "Edit Preset",
+                $"New Value {prefix}{(suffix == "" ? "" : " " + suffix)}:",
+                "Save", "Cancel",
+                initialValue: oldVal.ToString(CultureInfo.InvariantCulture),
+                keyboard: Keyboard.Numeric);
+
+            if (string.IsNullOrWhiteSpace(input)) return;
+
+            // Parse yeni değer (virgül/nokta toleranslı)
+            input = input.Replace("$", "").Replace("%", "").Trim().Replace(',', '.');
+            if (!decimal.TryParse(input, NumberStyles.Any, CultureInfo.InvariantCulture, out var val))
+            {
+                await DisplayAlert("Error", "Non-acceptable type.", "OK");
+                return;
+            }
+
+            // Etiketi formata göre yaz
+            string newLabel = group switch
+            {
+                "prof" => $"{val:0.#}%",
+                "pos" or "stop" => $"${val:0.##}",
+                _ => $"{val:0.##}" // off
+            };
+
+            btn.Text = newLabel;
+
+            // İsteğe bağlı: ilgili Entry’ye de yaz (aktif preset'i güncel değerle kullan)
+            /*
+            switch (group)
+            {
+                case "off":
+                    OffsetEntry.Text = val.ToString("0.##", CultureInfo.InvariantCulture);
+                    break;
+                case "pos":
+                    // Örn. "Position Size ($)" preset'i, sayıdan $'ı atıp Entry'ye yaz
+                    PositionEntry.Text = (val * 1000m).ToString("0", CultureInfo.InvariantCulture); // örnek; ihtiyacına göre
+                    break;
+                case "stop":
+                    StopLossEntry.Text = val.ToString("0.##", CultureInfo.InvariantCulture);
+                    break;
+                case "prof":
+                    ProfitEntry.Text = val.ToString("0.#", CultureInfo.InvariantCulture);
+                    break;
+            }
+            */
+        }
+
     }
 }
