@@ -225,36 +225,39 @@ namespace ArcTriggerUI
         #region Buton Format Yardımcı Metotları || Button Format Helper Methods
         static string NormalizeForMode(string input, SectionMode mode)
         {
-            var t = input.Trim().ToUpperInvariant().Replace("$", "");
+            var t = input?.Trim().ToUpperInvariant() ?? "";
+
             switch (mode)
             {
                 case SectionMode.KAmount:
-                    if (t.EndsWith("K")) return t;
-                    if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v1))
-                        return v1 >= 1000 ? (v1 / 1000.0).ToString("0.#", CultureInfo.InvariantCulture) + "K"
-                                          : v1.ToString("0", CultureInfo.InvariantCulture);
+                    // "7.5K" gibi gelirse standardize et
+                    if (t.EndsWith("K") && TryParseFlexible(t[..^1], out var kIn))
+                        return FormatK(kIn * 1000m);
+                    // "7500" gibi gelirse -> "7.5K"
+                    if (TryParseFlexible(t, out var raw))
+                        return raw >= 1000m ? FormatK(raw)
+                                            : raw.ToString("0", CultureInfo.InvariantCulture);
                     return t;
 
                 case SectionMode.Dollar:
-                    t = t.Replace("%", "");
-                    if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v2))
-                        return v2.ToString("0.00", CultureInfo.InvariantCulture);
-                    return t;
+                    return TryParseFlexible(t, out var d)
+                        ? d.ToString("0.00", CultureInfo.InvariantCulture)
+                        : t;
 
                 case SectionMode.Percent:
-                    t = t.Replace("%", "");
-                    if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v3))
-                        return v3.ToString("0.#", CultureInfo.InvariantCulture) + "%";
-                    return t.EndsWith("%") ? t : t + "%";
+                    return TryParseFlexible(t, out var p)
+                        ? p.ToString("0.#", CultureInfo.InvariantCulture) + "%"
+                        : (t.EndsWith("%") ? t : t + "%");
 
                 case SectionMode.Decimal:
-                    t = t.Replace("%", "");
-                    if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v4))
-                        return v4.ToString("0.00", CultureInfo.InvariantCulture);
-                    return t;
+                    return TryParseFlexible(t, out var dec)
+                        ? dec.ToString("0.00", CultureInfo.InvariantCulture)
+                        : t;
             }
             return t;
         }
+
+
         #endregion
 
         #region Buton Değer Yardımcı Metotları || Button Value Helper Methods
@@ -274,9 +277,8 @@ namespace ArcTriggerUI
         #region Buton Değer Dönüştürme Metodu || Button Value Conversion Method
         static string ValueForEntry(string buttonText, SectionMode mode)
         {
-            var s = (buttonText ?? string.Empty).Trim().ToUpperInvariant();
-            s = s.Replace("$", "").Replace("%", "").Replace(" ", "")
-                 .Replace(',', '.'); // << kritik: TR ondalık uyumu
+            var s = (buttonText ?? "").Trim().ToUpperInvariant()
+                    .Replace("$", "").Replace("%", "").Replace(" ", "").Replace(',', '.');
 
             switch (mode)
             {
@@ -284,30 +286,32 @@ namespace ArcTriggerUI
                     if (s.EndsWith("K"))
                     {
                         var n = s[..^1];
-                        if (decimal.TryParse(n, NumberStyles.Float, CultureInfo.InvariantCulture, out var k))
-                            return Math.Round(k * 1000m).ToString(CultureInfo.InvariantCulture);
+                        return TryParseFlexible(n, out var k)
+                            ? Math.Round(k * 1000m).ToString(CultureInfo.InvariantCulture)
+                            : "";
                     }
-                    if (decimal.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var val))
-                        return val.ToString(CultureInfo.InvariantCulture);
-                    return "";
+                    return TryParseFlexible(s, out var raw)
+                        ? raw.ToString("0", CultureInfo.InvariantCulture)
+                        : "";
 
                 case SectionMode.Dollar:
-                    if (decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
-                        return d.ToString("0.00", CultureInfo.InvariantCulture);
-                    return "";
+                    return TryParseFlexible(s, out var d)
+                        ? d.ToString("0.00", CultureInfo.InvariantCulture)
+                        : "";
 
                 case SectionMode.Percent:
-                    if (decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var p))
-                        return p.ToString("0.#", CultureInfo.InvariantCulture);
-                    return "";
+                    return TryParseFlexible(s, out var p)
+                        ? p.ToString("0.#", CultureInfo.InvariantCulture)
+                        : "";
 
                 case SectionMode.Decimal:
-                    if (decimal.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
-                        return dec.ToString("0.00", CultureInfo.InvariantCulture);
-                    return "";
+                    return TryParseFlexible(s, out var dec)
+                        ? dec.ToString("0.00", CultureInfo.InvariantCulture)
+                        : "";
             }
             return "";
         }
+
 
         #endregion
 
@@ -819,70 +823,67 @@ namespace ArcTriggerUI
         private async void OnPresetRightClick(object sender, TappedEventArgs e)
         {
             if (sender is not Button btn) return;
+            if (!TryFindSectionAndIndex(btn, out var s, out var slotIndex)) return; // aşağıdaki helper
 
-            // Hangi grup? ("off", "pos", "stop", "prof")
-            var group = (btn.CommandParameter as string)?.ToLowerInvariant() ?? "";
+            // mevcut değeri parse et (virgül/nokta toleranslı)
+            string old = btn.Text?.Trim() ?? "";
+            old = old.Replace("$", "").Replace("%", "").Trim().Replace(',', '.');
 
-            // Mevcut yazıdan sayıyı çıkar
-            string oldLabel = btn.Text?.Trim() ?? "";
-            string numericPart = oldLabel.Replace("$", "").Replace("%", "").Trim()
-                                         .Replace(',', '.'); // TR ondalık uyumu
-
-            decimal oldVal = 0m;
-            decimal.TryParse(numericPart, NumberStyles.Any, CultureInfo.InvariantCulture, out oldVal);
-
-            // Birim belirle
-            string prefix = group is "pos" or "stop" ? "$" : "";
-            string suffix = group == "prof" ? "%" : "";
-
-            // Prompt aç
             string input = await DisplayPromptAsync(
                 "Edit Preset",
-                $"New Value {prefix}{(suffix == "" ? "" : " " + suffix)}:",
+                s.Mode switch
+                {
+                    SectionMode.KAmount => "New value (e.g. 1.5K or 1500):",
+                    SectionMode.Dollar => "New value ($):",
+                    SectionMode.Percent => "New value (%):",
+                    _ => "New value:"
+                },
                 "Save", "Cancel",
-                initialValue: oldVal.ToString(CultureInfo.InvariantCulture),
+                initialValue: old,
                 keyboard: Keyboard.Numeric);
 
             if (string.IsNullOrWhiteSpace(input)) return;
 
-            // Parse yeni değer (virgül/nokta toleranslı)
-            input = input.Replace("$", "").Replace("%", "").Trim().Replace(',', '.');
-            if (!decimal.TryParse(input, NumberStyles.Any, CultureInfo.InvariantCulture, out var val))
-            {
-                await DisplayAlert("Error", "Non-ex.", "OK");
-                return;
-            }
+            // 1) Normalizasyon (K, %, $ vb.)
+            var normalized = NormalizeForMode(input, s.Mode);
 
-            // Etiketi formata göre yaz
-            string newLabel = group switch
-            {
-                "prof" => $"{val:0.#}%",
-                "pos" or "stop" => $"${val:0.##}",
-                _ => $"{val:0.##}" // off
-            };
+            // 2) Seçili slotu güncelle + kaydet + butonları yenile
+            s.Selected[slotIndex] = normalized;
+            SaveSection(s);
+            ApplySectionButtons(s); // -> "$7.5K" gibi doğru metni basar
 
-            btn.Text = newLabel;
-
-            // İsteğe bağlı: ilgili Entry’ye de yaz (aktif preset'i güncel değerle kullan)
-            /*
-            switch (group)
-            {
-                case "off":
-                    OffsetEntry.Text = val.ToString("0.##", CultureInfo.InvariantCulture);
-                    break;
-                case "pos":
-                    // Örn. "Position Size ($)" preset'i, sayıdan $'ı atıp Entry'ye yaz
-                    PositionEntry.Text = (val * 1000m).ToString("0", CultureInfo.InvariantCulture); // örnek; ihtiyacına göre
-                    break;
-                case "stop":
-                    StopLossEntry.Text = val.ToString("0.##", CultureInfo.InvariantCulture);
-                    break;
-                case "prof":
-                    ProfitEntry.Text = val.ToString("0.#", CultureInfo.InvariantCulture);
-                    break;
-            }
-            */
+            // 3) İlgili Entry'ye ham değeri yaz (7500 gibi)
+            var displayText = DisplayForButton(normalized, s.Mode);
+            s.TargetEntry.Text = ValueForEntry(displayText, s.Mode);
         }
+
+        static bool TryParseFlexible(string text, out decimal value)
+        {
+            value = 0m;
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            var t = text.Trim().Replace("$", "").Replace("%", "").Replace(" ", "").Replace(',', '.');
+            return decimal.TryParse(t, NumberStyles.Any, CultureInfo.InvariantCulture, out value);
+        }
+        static string FormatK(decimal raw) // raw = 7500 -> "7.5K"
+        {
+            var k = raw / 1000m;
+            var body = (k % 1m == 0m) ? k.ToString("0", CultureInfo.InvariantCulture)
+                                      : k.ToString("0.#", CultureInfo.InvariantCulture);
+            return body + "K";
+        }
+        private bool TryFindSectionAndIndex(Button btn, out SectionConfig s, out int slotIndex)
+        {
+            s = null; slotIndex = -1;
+            var id = (btn.CommandParameter as string)?.ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(id) || !sections.TryGetValue(id, out s))
+                return false;
+
+            slotIndex = Array.IndexOf(s.Slots, btn);
+            if (slotIndex < 0) slotIndex = 0;
+            return true;
+        }
+
+
 
     }
 }
