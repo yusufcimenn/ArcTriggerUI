@@ -1,5 +1,8 @@
 ﻿
+using ArcTriggerUI.Dtos.Info;
 using System.Threading.Tasks;
+using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
+using static ArcTriggerUI.Dtos.SecDefs.ResultSecdef;
 
 namespace ArcTriggerUI.Interfaces
 {
@@ -14,5 +17,12 @@ namespace ArcTriggerUI.Interfaces
 
         // Delete İşlemi
         Task DeleteAsync(string url, int id);
+
+        // Özel metotlar
+        Task<string> GetSecDefStrikeAsync(string conid, string month, string secType);
+        Task<SecDefResponse> GetSecDefAsync(string conids);
+        Task<List<PortfolioItem>> GetPortfolioAsync();
+
+        Task<InfoResponse> GetInfoAsync(string conid);
     }
 }

@@ -5,6 +5,7 @@ using ArcTriggerUI.Services;
 using System.Globalization;
 using System.Resources;
 using System.Text.Json;
+using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
 
 namespace ArcTriggerUI
 {
@@ -67,8 +68,8 @@ namespace ArcTriggerUI
             }
             _apiService = apiService;
         }
-            
-        
+
+
 
         #region Order Add Section || Sipariş Ekleme Bölümü
         private void OnSendClicked(object sender, EventArgs e)
@@ -582,8 +583,8 @@ namespace ArcTriggerUI
         private void OnToggleThemeClicked(object sender, EventArgs e)
         {
             var app = Application.Current;
-           
-            if (imageDarkandLight==false)
+
+            if (imageDarkandLight == false)
             {
                 if (app is null) return;
 
@@ -592,7 +593,7 @@ namespace ArcTriggerUI
                     : AppTheme.Dark;
                 btnDarkMode.IconImageSource = "lightt.png";
                 btnDarkMode.Text = "Light";
-                
+
                 imageDarkandLight = true;
             }
             else
@@ -606,7 +607,7 @@ namespace ArcTriggerUI
                 btnDarkMode.Text = "Dark";
                 imageDarkandLight = false;
             }
-          
+
         }
 
         #region Api Request || Api İstek 4
@@ -682,7 +683,7 @@ namespace ArcTriggerUI
         //        {
         //            symbol = "AAPL",
         //            name = true,
-        //            secType = "STK"
+        //            //secType = "STK"
         //        };
 
         //        // TResponse artık ResultSymbols olmalı, string değil
@@ -718,7 +719,7 @@ namespace ArcTriggerUI
             try
             {
                 string url = "http://192.168.1.112:8000/api/orders/";
-                await _apiService.DeleteAsync(url,symbolId);
+                await _apiService.DeleteAsync(url, symbolId);
 
                 await DisplayAlert("Success", $"Symbol '{symbolId}' deleted successfully!", "OK");
             }
@@ -728,6 +729,90 @@ namespace ArcTriggerUI
             }
         }
 
+        private async void OnSecdefStrikeClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                string result = await _apiService.GetSecDefStrikeAsync("46639520", "ASDA", "STK");
+                await DisplayAlert("Success", $"API Response: {result}", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        private async void OngGetSecdef(object sender, EventArgs e)
+        {
+            try
+            {
+                var response = await _apiService.GetSecDefAsync("46639520");
+
+                if (response?.secdef != null && response.secdef.Count > 0)
+                {
+                    var first = response.secdef[0];
+                    string msg = $"Name: {first.name}\nTicker: {first.ticker}\nCurrency: {first.currency}\nHasOptions: {first.hasOptions}";
+                    await DisplayAlert("SecDef Item", msg, "OK");
+                }
+                else
+                {
+                    await DisplayAlert("SecDef", "Hiç kayıt yok.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        private async void OnGetInfoClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                var info = await _apiService.GetInfoAsync("46639520");
+                await DisplayAlert("Info",
+                    $"Conid: {info.conid}\nTicker: {info.ticker}\nCompany: {info.companyName}\nCurrency: {info.currency}",
+                    "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+
+        // Örnek buton click event
+        private async void OnGetPortfolioClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                // ApiService instance'ını kullan
+                var portfolioList = await _apiService.GetPortfolioAsync();
+
+                if (portfolioList != null && portfolioList.Count > 0)
+                {
+                    // İlk portfolio item'ı gösterelim
+                    var firstItem = portfolioList[0];
+
+                    string message =
+                        $"ID: {firstItem.id}\n" +
+                        $"DisplayName: {firstItem.displayName}\n" +
+                        $"AccountId: {firstItem.accountId}\n" +
+                        $"Currency: {firstItem.currency}\n" +
+                        $"Type: {firstItem.type}";
+
+                    await DisplayAlert("Portfolio Item", message, "OK");
+                }
+                else
+                {
+                    await DisplayAlert("Portfolio", "Hiç kayıt bulunamadı.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
 
         #endregion
     }
