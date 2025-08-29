@@ -56,6 +56,16 @@ namespace ArcTriggerUI
         public MainPage(IApiService apiService)
         {
             InitializeComponent();
+            InitHotSections();
+            var saved = Preferences.Get("ui.theme", "Unspecified");
+            if (Enum.TryParse<AppTheme>(saved, out var savedTheme))
+            {
+                Application.Current.UserAppTheme = savedTheme;
+                var item = this.ToolbarItems?.FirstOrDefault();
+                if (item != null)
+                    item.Text = savedTheme == AppTheme.Dark ? "Light" : "Dark";
+            }
+        }
             _apiService = apiService; 
         }
 
@@ -567,6 +577,37 @@ namespace ArcTriggerUI
             OrdersContainer.Children.Clear();
         }
 
+        private bool imageDarkandLight = false;
+        private void OnToggleThemeClicked(object sender, EventArgs e)
+        {
+            var app = Application.Current;
+           
+            if (imageDarkandLight==false)
+            {
+                if (app is null) return;
+
+                app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
+                    ? AppTheme.Light
+                    : AppTheme.Dark;
+                btnDarkMode.IconImageSource = "lightt.png";
+                btnDarkMode.Text = "Light";
+                
+                imageDarkandLight = true;
+            }
+            else
+            {
+                if (app is null) return;
+
+                app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
+                    ? AppTheme.Light
+                    : AppTheme.Dark;
+                btnDarkMode.IconImageSource = "theme_toggle.png";
+                btnDarkMode.Text = "Dark";
+                imageDarkandLight = false;
+            }
+          
+        }
+
         #region Api Request || Api İstek 4
         private async void OnGetTickleClicked(object sender, EventArgs e)
         {
@@ -685,6 +726,7 @@ namespace ArcTriggerUI
                 await DisplayAlert("Error", ex.Message, "OK");
             }
         }
+
 
         #endregion
     }
