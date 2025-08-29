@@ -27,7 +27,6 @@ namespace ArcTriggerUI.Services
 
 
         }
-
         // Ham GET
         public async Task<string> GetAsync(string url)
         {
