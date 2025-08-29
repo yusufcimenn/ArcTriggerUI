@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.Json;
+
 namespace ArcTriggerUI.Dashboard;
 
 
@@ -16,7 +19,6 @@ public class Order
     public decimal ProfitTaking { get; set; }
     public bool AlphaFlag { get; set; }
 
-
     public override string ToString()
     {
         return $"Symbol: {Symbol}, Trigger: {TriggerPrice}, Type: {OrderType}, Mode: {OrderMode}, Offset: {Offset}, Strike: {Strike}, Expiry: {Expiry}, Position: {PositionSize}, StopLoss: {StopLoss}, Profit: {ProfitTaking}, Alpha: {AlphaFlag}";
@@ -26,19 +28,256 @@ public class Order
 public partial class OrderFrame : ContentView
 {
 
+    class SectionConfig
+    {
+        public string Id = "";
+        public SectionMode Mode;
+        public List<string> Catalog = new();
+        public string[] Selected = new string[3];
+        public string PrefKey = "";
+        public Button[] Slots = Array.Empty<Button>();
+        public Entry TargetEntry = null!;
+    }
+    readonly Dictionary<string, SectionConfig> sections = new();
+    enum SectionMode { KAmount, Dollar, Percent, Decimal }
+
+    // Always 3 slots
+    private readonly string[] _selected = new[] { "5K", "10K", "25K" };
+    private const string PrefKey = "possize.hotbuttons.v1";
+
     public OrderFrame()
     {
         InitializeComponent();
+        InitHotSections();
     }
 
-    private void OnCancelClicked(object sender, EventArgs e){
-    
-        if(this.Parent is Layout parentlayout)
+    /// /// OZELLESTIRILEBILIR 
+    void InitHotSections()
+    {
+        sections["pos"] = new SectionConfig
         {
-            parentlayout.Children.Remove(this);
+            Id = "pos",
+            Mode = SectionMode.KAmount,
+            Catalog = new() { "500", "750", "1K", "1.5K", "2K", "2.5K", "5K", "10K", "25K", "50K" },
+            Selected = new[] { "5K", "10K", "25K" },
+            PrefKey = "hot.pos.v1",
+            Slots = new[] { BtnPos1, BtnPos2, BtnPos3 },
+            TargetEntry = PositionEntry
+        };
+
+        sections["stop"] = new SectionConfig
+        {
+            Id = "stop",
+            Mode = SectionMode.Dollar,
+            Catalog = new() { "0.10", "0.15", "0.20", "0.25", "0.50", "0.75", "1.00", "1.50", "2.00" },
+            Selected = new[] { "0.20", "0.50", "1.00" },
+            PrefKey = "hot.stop.v1",
+            Slots = new[] { BtnStop1, BtnStop2, BtnStop3 },
+            TargetEntry = StopLossEntry
+        };
+
+        sections["prof"] = new SectionConfig
+        {
+            Id = "prof",
+            Mode = SectionMode.Percent,
+            Catalog = new() { "5%", "10%", "15%", "20%", "25%", "30%", "40%", "50%" },
+            Selected = new[] { "10%", "20%", "30%" },
+            PrefKey = "hot.prof.v1",
+            Slots = new[] { BtnProf1, BtnProf2, BtnProf3 },
+            TargetEntry = ProfitEntry
+        };
+        sections["off"] = new SectionConfig
+        {
+            Id = "off",
+            Mode = SectionMode.Decimal,
+            Catalog = new() { "0.01", "0.02", "0.03", "0.05", "0.10", "0.15", "0.20", "0.25" },
+            Selected = new[] { "0.05", "0.10", "0.15" },   // default 3 slot
+            PrefKey = "hot.off.v1",
+            Slots = new[] { BtnOff1, BtnOff2 },
+            TargetEntry = OffsetEntry
+        };
+
+
+        foreach (var s in sections.Values)
+        {
+            LoadSection(s);
+            ApplySectionButtons(s);
         }
     }
 
+    // Tum preset butonlari icin tek handler
+    void OnHotPresetClicked(object sender, EventArgs e)
+    {
+        if (sender is not Button b || b.CommandParameter is not string id) return;
+        if (!sections.TryGetValue(id, out var s)) return;
+
+        var valForEntry = ValueForEntry(b.Text, s.Mode);
+        s.TargetEntry.Text = valForEntry;
+    }
+
+    // Tum + butonlari icin tek handler
+    async void OnHotAddClicked(object sender, EventArgs e)
+    {
+        if (sender is not Button b || b.CommandParameter is not string id) return;
+        if (!sections.TryGetValue(id, out var s)) return;
+
+        var used = new HashSet<string>(s.Selected, StringComparer.OrdinalIgnoreCase);
+        var options = s.Catalog.Where(x => !used.Contains(x)).ToList();
+        options.Add("Custom...");
+
+        var title = id == "pos" ? "Choose position size"
+                 : id == "stop" ? "Choose stop loss"
+                 : "Choose profit percent";
+        var prompt = id == "pos" ? "Enter like 1.5K or 1500"
+                 : id == "stop" ? "Enter dollars like 0.75"
+                 : "Enter percent like 12.5 or 12.5%";
+
+        var choice = await Shell.Current.DisplayActionSheet(title, "Cancel", null, options.ToArray());
+        if (string.IsNullOrWhiteSpace(choice) || choice == "Cancel") return;
+
+        if (choice == "Custom...")
+        {
+            var input = await Shell.Current.DisplayPromptAsync(title, prompt, "OK", "Cancel");
+            if (string.IsNullOrWhiteSpace(input)) return;
+            choice = input.Trim();
+        }
+
+        s.Selected[0] = NormalizeForMode(choice, s.Mode); // ilk slotu degistir
+        SaveSection(s);
+        ApplySectionButtons(s);
+    }
+
+    // Yardimci fonksiyonlar
+    void ApplySectionButtons(SectionConfig s)
+    {
+        for (int i = 0; i < s.Slots.Length && i < s.Selected.Length; i++)
+            s.Slots[i].Text = DisplayForButton(s.Selected[i], s.Mode);
+    }
+
+    void SaveSection(SectionConfig s)
+    {
+        Preferences.Set(s.PrefKey, JsonSerializer.Serialize(s.Selected));
+    }
+
+    void LoadSection(SectionConfig s)
+    {
+        var json = Preferences.Get(s.PrefKey, "");
+        if (string.IsNullOrWhiteSpace(json)) return;
+        try
+        {
+            var arr = JsonSerializer.Deserialize<string[]>(json);
+            if (arr == null) return;
+            var n = Math.Min(arr.Length, s.Selected.Length);
+            for (int i = 0; i < n; i++)
+                s.Selected[i] = arr[i];
+        }
+        catch { }
+    }
+
+
+    // Formatlama ve parse
+    static string NormalizeForMode(string input, SectionMode mode)
+    {
+        var t = input.Trim().ToUpperInvariant().Replace("$", "");
+        switch (mode)
+        {
+            case SectionMode.KAmount:
+                if (t.EndsWith("K")) return t;
+                if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v1))
+                    return v1 >= 1000 ? (v1 / 1000.0).ToString("0.#", CultureInfo.InvariantCulture) + "K"
+                                      : v1.ToString("0", CultureInfo.InvariantCulture);
+                return t;
+
+            case SectionMode.Dollar:
+                t = t.Replace("%", "");
+                if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v2))
+                    return v2.ToString("0.00", CultureInfo.InvariantCulture);
+                return t;
+
+            case SectionMode.Percent:
+                t = t.Replace("%", "");
+                if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v3))
+                    return v3.ToString("0.#", CultureInfo.InvariantCulture) + "%";
+                return t.EndsWith("%") ? t : t + "%";
+
+            case SectionMode.Decimal:
+                t = t.Replace("%", "");
+                if (double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v4))
+                    return v4.ToString("0.00", CultureInfo.InvariantCulture);
+                return t;
+        }
+        return t;
+    }
+
+    static string DisplayForButton(string normalized, SectionMode mode)
+    {
+        return mode switch
+        {
+            SectionMode.KAmount => "$" + normalized,
+            SectionMode.Dollar => "$" + normalized,
+            SectionMode.Percent => normalized,
+            SectionMode.Decimal => normalized,
+            _ => normalized
+        };
+    }
+
+    static string ValueForEntry(string buttonText, SectionMode mode)
+    {
+        var s = buttonText.Trim().ToUpperInvariant().Replace("$", "");
+        switch (mode)
+        {
+            case SectionMode.KAmount:
+                if (s.EndsWith("K"))
+                {
+                    var n = s[..^1];
+                    if (double.TryParse(n, NumberStyles.Float, CultureInfo.InvariantCulture, out var k))
+                        return ((int)Math.Round(k * 1000.0)).ToString(CultureInfo.InvariantCulture);
+                }
+                if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var val))
+                    return val.ToString(CultureInfo.InvariantCulture);
+                return "";
+
+            case SectionMode.Dollar:
+                s = s.Replace("%", "");
+                if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+                    return d.ToString("0.00", CultureInfo.InvariantCulture);
+                return "";
+
+            case SectionMode.Percent:
+                s = s.Replace("%", "");
+                if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var p))
+                    return p.ToString("0.#", CultureInfo.InvariantCulture);
+                return "";
+
+            case SectionMode.Decimal:
+                s = s.Replace("%", "");
+                if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
+                    return dec.ToString("0.00", CultureInfo.InvariantCulture);
+                return "";
+
+        }
+        return "";
+    }
+
+    //////////////// OZELLESTIRILEBILIR
+
+    private void OnNumberEntryTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.NewTextValue))
+            return;
+
+        // Girilen karakteri kontrol et
+        if (!int.TryParse(e.NewTextValue, out int value) || value < 1 || value > 9)
+        {
+            // Geçersizse eski deðeri geri yükle
+            ((Entry)sender).Text = e.OldTextValue;
+        }
+    }
+
+    private void OnAutoFetchClicked(object sender, EventArgs e)
+    {
+        // TODO implement later
+    }
 
     // Symbol Picker
     private void OnSymbolChanged(object sender, EventArgs e)
@@ -47,8 +286,15 @@ public partial class OrderFrame : ContentView
         {
             var symbol = picker.Items[picker.SelectedIndex];
             Console.WriteLine($"Selected symbol: {symbol}");
+
+            // Window baþlýðýna yansýt
+            if (this.Window != null)
+                this.Window.Title = symbol;
+
+            // Picker Title'ýný güncelle
             picker.Title = symbol;
 
+            // DisplayLabel güncelle
             if (this.FindByName<Label>("DisplayLabel") is Label label)
             {
                 var currentText = label.Text ?? "";
@@ -67,7 +313,9 @@ public partial class OrderFrame : ContentView
                     }
                 }
                 if (!stockUpdated)
+                {
                     lines.Insert(0, $"Symbol: {symbol}");
+                }
 
                 label.Text = string.Join(", ", lines);
             }
@@ -114,7 +362,11 @@ public partial class OrderFrame : ContentView
         {
             var strike = picker.Items[picker.SelectedIndex];
             Console.WriteLine($"Strike: {strike}");
-            picker.Title = strike;
+
+            if (this.Window != null)
+                this.Window.Title = strike;
+
+            picker.Title = strike; // Picker Title güncelle
         }
     }
 
@@ -124,8 +376,12 @@ public partial class OrderFrame : ContentView
         if (sender is Picker picker && picker.SelectedIndex != -1)
         {
             var expiry = picker.Items[picker.SelectedIndex];
-            Console.WriteLine($"Expiry: {expiry}");
-            picker.Title = expiry;
+            Console.WriteLine($"Expiration: {expiry}");
+
+            if (this.Window != null)
+                this.Window.Title = expiry;
+
+            picker.Title = expiry; // Picker Title güncelle
         }
     }
 
@@ -137,11 +393,15 @@ public partial class OrderFrame : ContentView
 
     private void OnPositionPresetClicked(object sender, EventArgs e)
     {
-        if (sender is Button btn && this.FindByName<Entry>("PositionEntry") is Entry entry)
-            entry.Text = btn.Text.Replace("$", "");
+        if (sender is Button b)
+        {
+            //var val = ParseHotToInt(b.Text);
+            //if (val > 0)
+            //    PositionEntry.Text = val.ToString(CultureInfo.InvariantCulture);
+        }
     }
 
-    // Stop Loss
+    // Stop loss
     private void OnStopLossTextChanged(object sender, TextChangedEventArgs e)
     {
         Console.WriteLine($"Stop loss: {e.NewTextValue}");
@@ -150,43 +410,25 @@ public partial class OrderFrame : ContentView
     private void OnStopLossPreset(object sender, EventArgs e)
     {
         if (sender is Button btn && this.FindByName<Entry>("StopLossEntry") is Entry entry)
+        {
             entry.Text = btn.Text.Replace("$", "");
-    }
-
-    // Profit
-    private void OnProfitPresetClicked(object sender, EventArgs e)
-    {
-        if (sender is Button btn && this.FindByName<Entry>("ProfitEntry") is Entry entry)
-        {
-            entry.Text = btn.Text.Replace("%", "");
-            Console.WriteLine($"Profit taking set to {entry.Text}%");
         }
     }
 
-    // Offset
-    private void OnOffsetPresetClicked(object sender, EventArgs e)
-    {
-        if (sender is Button btn && this.FindByName<Entry>("OffsetEntry") is Entry entry)
-        {
-            entry.Text = btn.Text;
-            Console.WriteLine($"Offset set to {entry.Text}");
-        }
-    }
-
-    // Final Order
+    // Final action
     private void OnCreateOrderClicked(object sender, EventArgs e)
     {
-        var symbol = (this.FindByName<Picker>("StockPicker")?.SelectedIndex ?? -1) != -1 ? this.FindByName<Picker>("StockPicker").Items[this.FindByName<Picker>("StockPicker").SelectedIndex] : "";
-        var triggerPrice = decimal.TryParse(this.FindByName<Entry>("TriggerEntry")?.Text, out var t) ? t : 0;
-        var orderType = this.FindByName<RadioButton>("CallRadioButton")?.IsChecked == true ? "Call" : "Put";
-        var orderMode = this.FindByName<RadioButton>("MktRadioButton")?.IsChecked == true ? "MKT" : "LMT";
-        var offset = decimal.TryParse(this.FindByName<Entry>("OffsetEntry")?.Text, out var o) ? o : 0;
-        var strike = (this.FindByName<Picker>("StrikePicker")?.SelectedIndex ?? -1) != -1 ? this.FindByName<Picker>("StrikePicker").Items[this.FindByName<Picker>("StrikePicker").SelectedIndex] : "";
-        var expiry = (this.FindByName<Picker>("ExpPicker")?.SelectedIndex ?? -1) != -1 ? this.FindByName<Picker>("ExpPicker").Items[this.FindByName<Picker>("ExpPicker").SelectedIndex] : "";
-        var position = decimal.TryParse(this.FindByName<Entry>("PositionEntry")?.Text, out var p) ? p : 0;
-        var stopLoss = decimal.TryParse(this.FindByName<Entry>("StopLossEntry")?.Text, out var s) ? s : 0;
-        var profit = decimal.TryParse(this.FindByName<Entry>("ProfitEntry")?.Text, out var pr) ? pr : 0;
-        var alpha = this.FindByName<CheckBox>("AlphaCheck")?.IsChecked == true;
+        var symbol = (StockPicker.SelectedIndex != -1) ? StockPicker.Items[StockPicker.SelectedIndex] : "";
+        var triggerPrice = decimal.TryParse(TriggerEntry.Text, out var t) ? t : 0;
+        var orderType = CallRadioButton.IsChecked ? "Call" : "Put";
+        var orderMode = MktRadioButton.IsChecked ? "MKT" : "LMT";
+        var offset = decimal.TryParse(OffsetEntry.Text, out var o) ? o : 0;
+        var strike = (StrikePicker.SelectedIndex != -1) ? StrikePicker.Items[StrikePicker.SelectedIndex] : "";
+        var expiry = (ExpPicker.SelectedIndex != -1) ? ExpPicker.Items[ExpPicker.SelectedIndex] : "";
+        var position = decimal.TryParse(PositionEntry.Text, out var p) ? p : 0;
+        var stopLoss = decimal.TryParse(StopLossEntry.Text, out var s) ? s : 0;
+        var profit = decimal.TryParse(ProfitEntry.Text, out var pr) ? pr : 0;
+        var alpha = AlphaCheck.IsChecked;
 
         var order = new Order
         {
@@ -203,10 +445,22 @@ public partial class OrderFrame : ContentView
             AlphaFlag = alpha
         };
 
-        Console.WriteLine("Order created: " + order);
+        Console.WriteLine("Order created: " + order.ToString());
 
+        // Ekrana yazdýr
         if (this.FindByName<Label>("DisplayLabel") is Label label)
+        {
             label.Text = order.ToString();
+        }
+    }
+
+    private void OnProfitPresetClicked(object sender, EventArgs e)
+    {
+        if (sender is Button btn && this.FindByName<Entry>("ProfitEntry") is Entry entry)
+        {
+            entry.Text = btn.Text.Replace("%", "");
+            Console.WriteLine($"Profit taking set to {entry.Text}%");
+        }
     }
 
     private void OnTrailClicked(object sender, EventArgs e)
@@ -217,5 +471,22 @@ public partial class OrderFrame : ContentView
     private void OnBreakevenClicked(object sender, EventArgs e)
     {
         Console.WriteLine("Breakeven action triggered");
+    }
+
+    private void OnOffsetPresetClicked(object sender, EventArgs e)
+    {
+        if (sender is Button btn && this.FindByName<Entry>("OffsetEntry") is Entry entry)
+        {
+            entry.Text = btn.Text;
+            Console.WriteLine($"Offset set to {entry.Text}");
+        }
+    }
+
+    // Cancel butonunda bu pencereyi kapat
+    void OnCancelClicked(object sender, EventArgs e)
+    {
+        var w = this.Window;
+        if (w != null && Application.Current != null)
+            Application.Current.CloseWindow(w);
     }
 }
