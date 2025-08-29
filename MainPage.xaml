@@ -7,7 +7,6 @@
     <!-- Tema toggle -->
     <ContentPage.ToolbarItems>
         <ToolbarItem x:Name="btnDarkMode" IconImageSource="theme_toggle.png"
-                 StyleClass="ToolBarsTextColor"   
                  Priority="0"
                  Order="Primary"
                  Clicked="OnToggleThemeClicked" />
@@ -16,7 +15,7 @@
     <ContentPage.Resources>
 
         
-
+        
 
         <!-- sizes -->
         <x:Double x:Key="FontSmall">12</x:Double>
