@@ -52,6 +52,14 @@ namespace ArcTriggerUI
         {
             InitializeComponent();
             InitHotSections();
+            var saved = Preferences.Get("ui.theme", "Unspecified");
+            if (Enum.TryParse<AppTheme>(saved, out var savedTheme))
+            {
+                Application.Current.UserAppTheme = savedTheme;
+                var item = this.ToolbarItems?.FirstOrDefault();
+                if (item != null)
+                    item.Text = savedTheme == AppTheme.Dark ? "Light" : "Dark";
+            }
         }
 
         #region Order Add Section || Sipariş Ekleme Bölümü
@@ -561,6 +569,38 @@ namespace ArcTriggerUI
         {
             OrdersContainer.Children.Clear();
         }
+
+        private bool imageDarkandLight = false;
+        private void OnToggleThemeClicked(object sender, EventArgs e)
+        {
+            var app = Application.Current;
+           
+            if (imageDarkandLight==false)
+            {
+                if (app is null) return;
+
+                app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
+                    ? AppTheme.Light
+                    : AppTheme.Dark;
+                btnDarkMode.IconImageSource = "lightt.png";
+                btnDarkMode.Text = "Light";
+                
+                imageDarkandLight = true;
+            }
+            else
+            {
+                if (app is null) return;
+
+                app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
+                    ? AppTheme.Light
+                    : AppTheme.Dark;
+                btnDarkMode.IconImageSource = "theme_toggle.png";
+                btnDarkMode.Text = "Dark";
+                imageDarkandLight = false;
+            }
+          
+        }
+
 
 
     }

@@ -4,37 +4,28 @@
              x:Class="ArcTriggerUI.Dashboard.OrderFrame">
 
     <ContentView.Resources>
+        <!-- sizes -->
         <x:Double x:Key="FontSmall">12</x:Double>
         <x:Double x:Key="ControlHeight">32</x:Double>
         <x:Double x:Key="PickerHeight">36</x:Double>
         <x:Double x:Key="ChipHeight">28</x:Double>
 
-        <!-- LIGHT THEME palette -->
-        <Color x:Key="PageBackgroundColor">#FFFFFF</Color>
-        <!-- input/controls: page'den bir tık koyu -->
-        <Color x:Key="InputBackgroundColor">#FAFAFA</Color>
-        <Color x:Key="PrimaryTextColor">#111827</Color>
-        <Color x:Key="MutedTextColor">#6B7280</Color>
-        <Color x:Key="CardBorderColor">#E5E7EB</Color>
-        <!-- primary action (Place Order) koyu yeşil -->
-        <Color x:Key="PrimaryActionColor">#166534</Color>
-        <Color x:Key="ActionDangerColor">#EF4444</Color>
-
         <!-- base labels -->
         <Style TargetType="Label">
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+            <Setter Property="TextColor"
+            Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
             <Setter Property="FontSize" Value="{StaticResource FontSmall}" />
         </Style>
 
         <!-- section headers (centered) -->
         <Style x:Key="HeaderLabel" TargetType="Label">
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+            <Setter Property="TextColor"
+            Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
             <Setter Property="FontSize" Value="{StaticResource FontSmall}" />
             <Setter Property="HorizontalTextAlignment" Value="Center" />
             <Setter Property="HorizontalOptions" Value="Center" />
             <Setter Property="Margin" Value="0,0,0,2" />
         </Style>
-
 
         <!-- numeric entries: compact & centered text -->
         <Style x:Key="EntryNumericDense" TargetType="Entry">
@@ -42,20 +33,25 @@
             <Setter Property="WidthRequest" Value="110" />
             <Setter Property="HorizontalOptions" Value="Center" />
             <Setter Property="HorizontalTextAlignment" Value="Center" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="PlaceholderColor" Value="#9CA3AF" />
+            <Setter Property="BackgroundColor"
+            Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+            Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="PlaceholderColor"
+            Value="{AppThemeBinding Light=#9CA3AF, Dark=#6B7280}" />
             <Setter Property="Margin" Value="0" />
         </Style>
 
-        <!-- default light button (oklar vs. için) -->
         <!-- Base button -->
         <Style x:Key="BaseButton" TargetType="Button">
             <Setter Property="HeightRequest" Value="{StaticResource ControlHeight}" />
             <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="BorderColor" Value="{DynamicResource CardBorderColor}" />
+            <Setter Property="BackgroundColor"
+            Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+            Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="BorderColor"
+            Value="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}" />
             <Setter Property="BorderWidth" Value="1" />
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="Margin" Value="4,0" />
@@ -70,34 +66,39 @@
             <Setter Property="FontSize" Value="9" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="BorderColor" Value="{DynamicResource CardBorderColor}" />
+            <Setter Property="BackgroundColor"
+            Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+            Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="BorderColor"
+            Value="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}" />
             <Setter Property="BorderWidth" Value="1" />
         </Style>
 
-
-        <!-- Chip (siyah border) -->
+        <!-- Chip -->
         <Style x:Key="ChipButton" TargetType="Button">
             <Setter Property="HeightRequest" Value="24" />
             <Setter Property="MinimumHeightRequest" Value="24" />
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="FontSize" Value="11" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="BorderColor" Value="#000000" />
+            <Setter Property="BackgroundColor"
+            Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+            Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="BorderColor"
+            Value="{AppThemeBinding Light=#000000, Dark=#2A2D34}" />
             <Setter Property="BorderWidth" Value="1" />
             <Setter Property="Padding" Value="8,2" />
             <Setter Property="Margin" Value="2,0" />
         </Style>
-
 
         <!-- Actions -->
         <Style x:Key="ActionDanger" TargetType="Button" BasedOn="{StaticResource BaseButton}">
             <Setter Property="HeightRequest" Value="30" />
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="Padding" Value="12,4" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource ActionDangerColor}" />
+            <Setter Property="BackgroundColor"
+            Value="{AppThemeBinding Light=#EF4444, Dark=#DC2626}" />
             <Setter Property="TextColor" Value="White" />
             <Setter Property="BorderWidth" Value="0" />
         </Style>
@@ -106,10 +107,13 @@
             <Setter Property="HeightRequest" Value="30" />
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="Padding" Value="12,4" />
-            <Setter Property="BackgroundColor" Value="#E5E7EB" />
-            <Setter Property="TextColor" Value="#111827" />
+            <Setter Property="BackgroundColor"
+            Value="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}" />
+            <Setter Property="TextColor"
+            Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
             <Setter Property="BorderWidth" Value="0" />
         </Style>
+
         <Style x:Key="ActionOcean" TargetType="Button" BasedOn="{StaticResource BaseButton}">
             <Setter Property="HeightRequest" Value="30" />
             <Setter Property="CornerRadius" Value="10" />
@@ -124,30 +128,35 @@
             <Setter Property="HeightRequest" Value="34" />
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Padding" Value="16,6" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryActionColor}" />
+            <Setter Property="BackgroundColor"
+            Value="{AppThemeBinding Light=#166534, Dark=#16A34A}" />
             <Setter Property="TextColor" Value="White" />
             <Setter Property="FontAttributes" Value="Bold" />
             <Setter Property="BorderWidth" Value="0" />
         </Style>
 
-
-        <!-- Entry / Picker (light inputs) -->
+        <!-- Entry / Picker taban -->
         <Style TargetType="Entry" x:Key="EntryBase">
             <Setter Property="HeightRequest" Value="{StaticResource ControlHeight}" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="PlaceholderColor" Value="#9CA3AF" />
+            <Setter Property="BackgroundColor"
+            Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+            Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="PlaceholderColor"
+            Value="{AppThemeBinding Light=#9CA3AF, Dark=#6B7280}" />
             <Setter Property="Margin" Value="4,0" />
         </Style>
         <Style TargetType="Entry" BasedOn="{StaticResource EntryBase}" />
-        <!-- apply to all -->
 
         <Style TargetType="Picker">
             <Setter Property="HeightRequest" Value="{StaticResource PickerHeight}" />
             <Setter Property="MinimumHeightRequest" Value="{StaticResource PickerHeight}" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="TitleColor" Value="#9CA3AF" />
+            <Setter Property="BackgroundColor"
+            Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+            Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="TitleColor"
+            Value="{AppThemeBinding Light=#9CA3AF, Dark=#6B7280}" />
             <Setter Property="Margin" Value="4,0" />
             <Setter Property="HorizontalOptions" Value="Start" />
             <Setter Property="VerticalOptions" Value="Center" />
@@ -160,9 +169,8 @@
 
             <Frame HorizontalOptions="Fill"
        VerticalOptions="Center"
-       BackgroundColor="White"
-       BorderColor="Black"
-       
+       BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
+       BorderColor="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}"
        CornerRadius="12"
        HasShadow="False"
        Padding="12">

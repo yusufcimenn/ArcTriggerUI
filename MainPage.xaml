@@ -1,11 +1,19 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
-
-    <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="ArcTriggerUI.MainPage"
-             BackgroundColor="{DynamicResource PageBackgroundColor}">
+             BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#0C0C0F}">
+
+    <!-- Tema toggle -->
+    <ContentPage.ToolbarItems>
+        <ToolbarItem x:Name="btnDarkMode" IconImageSource="theme_toggle.png"
+                 Priority="0"
+                 Order="Primary"
+                 Clicked="OnToggleThemeClicked" />
+    </ContentPage.ToolbarItems>
 
     <ContentPage.Resources>
+        
 
         <!-- sizes -->
         <x:Double x:Key="FontSmall">12</x:Double>
@@ -13,53 +21,48 @@
         <x:Double x:Key="PickerHeight">36</x:Double>
         <x:Double x:Key="ChipHeight">28</x:Double>
 
-        <!-- LIGHT THEME palette -->
-        <Color x:Key="PageBackgroundColor">#FFFFFF</Color>
-        <!-- input/controls: page'den bir tık koyu -->
-        <Color x:Key="InputBackgroundColor">#FAFAFA</Color>
-        <Color x:Key="PrimaryTextColor">#111827</Color>
-        <Color x:Key="MutedTextColor">#6B7280</Color>
-        <Color x:Key="CardBorderColor">#E5E7EB</Color>
-        <!-- primary action (Place Order) koyu yeşil -->
-        <Color x:Key="PrimaryActionColor">#166534</Color>
-        <Color x:Key="ActionDangerColor">#EF4444</Color>
-
         <!-- base labels -->
         <Style TargetType="Label">
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
             <Setter Property="FontSize" Value="{StaticResource FontSmall}" />
         </Style>
 
         <!-- section headers (centered) -->
         <Style x:Key="HeaderLabel" TargetType="Label">
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
             <Setter Property="FontSize" Value="{StaticResource FontSmall}" />
             <Setter Property="HorizontalTextAlignment" Value="Center" />
             <Setter Property="HorizontalOptions" Value="Center" />
             <Setter Property="Margin" Value="0,0,0,2" />
         </Style>
-        
-        
+
         <!-- numeric entries: compact & centered text -->
         <Style x:Key="EntryNumericDense" TargetType="Entry">
             <Setter Property="HeightRequest" Value="{StaticResource ControlHeight}" />
             <Setter Property="WidthRequest" Value="110" />
             <Setter Property="HorizontalOptions" Value="Center" />
             <Setter Property="HorizontalTextAlignment" Value="Center" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="PlaceholderColor" Value="#9CA3AF" />
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="PlaceholderColor"
+                    Value="{AppThemeBinding Light=#9CA3AF, Dark=#6B7280}" />
             <Setter Property="Margin" Value="0" />
         </Style>
 
-        <!-- default light button (oklar vs. için) -->
         <!-- Base button -->
         <Style x:Key="BaseButton" TargetType="Button">
             <Setter Property="HeightRequest" Value="{StaticResource ControlHeight}" />
             <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="BorderColor" Value="{DynamicResource CardBorderColor}" />
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="BorderColor"
+                    Value="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}" />
             <Setter Property="BorderWidth" Value="1" />
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="Margin" Value="4,0" />
@@ -74,34 +77,39 @@
             <Setter Property="FontSize" Value="9" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="BorderColor" Value="{DynamicResource CardBorderColor}" />
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="BorderColor"
+                    Value="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}" />
             <Setter Property="BorderWidth" Value="1" />
         </Style>
 
-
-        <!-- Chip (siyah border) -->
+        <!-- Chip -->
         <Style x:Key="ChipButton" TargetType="Button">
-          <Setter Property="HeightRequest" Value="24" />
-          <Setter Property="MinimumHeightRequest" Value="24" />
-          <Setter Property="CornerRadius" Value="6" />
-          <Setter Property="FontSize" Value="11" />
-          <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-          <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-          <Setter Property="BorderColor" Value="#000000" />
-          <Setter Property="BorderWidth" Value="1" />
-          <Setter Property="Padding" Value="8,2" />
-          <Setter Property="Margin" Value="2,0" />
+            <Setter Property="HeightRequest" Value="24" />
+            <Setter Property="MinimumHeightRequest" Value="24" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="BorderColor"
+                    Value="{AppThemeBinding Light=#000000, Dark=#2A2D34}" />
+            <Setter Property="BorderWidth" Value="1" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="Margin" Value="2,0" />
         </Style>
-
 
         <!-- Actions -->
         <Style x:Key="ActionDanger" TargetType="Button" BasedOn="{StaticResource BaseButton}">
             <Setter Property="HeightRequest" Value="30" />
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="Padding" Value="12,4" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource ActionDangerColor}" />
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light=#EF4444, Dark=#DC2626}" />
             <Setter Property="TextColor" Value="White" />
             <Setter Property="BorderWidth" Value="0" />
         </Style>
@@ -110,10 +118,13 @@
             <Setter Property="HeightRequest" Value="30" />
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="Padding" Value="12,4" />
-            <Setter Property="BackgroundColor" Value="#E5E7EB" />
-            <Setter Property="TextColor" Value="#111827" />
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
             <Setter Property="BorderWidth" Value="0" />
         </Style>
+
         <Style x:Key="ActionOcean" TargetType="Button" BasedOn="{StaticResource BaseButton}">
             <Setter Property="HeightRequest" Value="30" />
             <Setter Property="CornerRadius" Value="10" />
@@ -128,56 +139,57 @@
             <Setter Property="HeightRequest" Value="34" />
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Padding" Value="16,6" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryActionColor}" />
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light=#166534, Dark=#16A34A}" />
             <Setter Property="TextColor" Value="White" />
             <Setter Property="FontAttributes" Value="Bold" />
             <Setter Property="BorderWidth" Value="0" />
         </Style>
 
-
-        <!-- Entry / Picker (light inputs) -->
+        <!-- Entry / Picker taban -->
         <Style TargetType="Entry" x:Key="EntryBase">
             <Setter Property="HeightRequest" Value="{StaticResource ControlHeight}" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="PlaceholderColor" Value="#9CA3AF" />
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="PlaceholderColor"
+                    Value="{AppThemeBinding Light=#9CA3AF, Dark=#6B7280}" />
             <Setter Property="Margin" Value="4,0" />
         </Style>
         <Style TargetType="Entry" BasedOn="{StaticResource EntryBase}" />
-        <!-- apply to all -->
 
         <Style TargetType="Picker">
             <Setter Property="HeightRequest" Value="{StaticResource PickerHeight}" />
             <Setter Property="MinimumHeightRequest" Value="{StaticResource PickerHeight}" />
-            <Setter Property="BackgroundColor" Value="{DynamicResource InputBackgroundColor}" />
-            <Setter Property="TextColor" Value="{DynamicResource PrimaryTextColor}" />
-            <Setter Property="TitleColor" Value="#9CA3AF" />
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}" />
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
+            <Setter Property="TitleColor"
+                    Value="{AppThemeBinding Light=#9CA3AF, Dark=#6B7280}" />
             <Setter Property="Margin" Value="4,0" />
             <Setter Property="HorizontalOptions" Value="Start" />
             <Setter Property="VerticalOptions" Value="Center" />
         </Style>
-        
 
     </ContentPage.Resources>
 
-
     <ScrollView>
         <Grid Padding="8" HorizontalOptions="Fill" VerticalOptions="Fill">
-        
-        <Frame HorizontalOptions="Fill"
-           VerticalOptions="Center"
-           BackgroundColor="White"
-           BorderColor="Black"
-           
-           CornerRadius="12"
-           HasShadow="False"
-           Padding="12">
 
-            <Grid RowDefinitions="Auto,Auto,Auto , *" ColumnDefinitions="*,Auto">
-       
+            <Frame HorizontalOptions="Fill"
+                   VerticalOptions="Center"
+                   BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
+                   BorderColor="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}"
+                   CornerRadius="12"
+                   HasShadow="False"
+                   Padding="12">
+
+
+                <Grid RowDefinitions="Auto,Auto,Auto , *" ColumnDefinitions="*,Auto">
 
                     <!-- TOP ROW: inputs -->
-                <!-- TOP ROW: inputs (no horizontal scroll) -->
                     <Grid Grid.Row="0" Grid.Column="0">
                         <HorizontalStackLayout Spacing="8" Padding="12,2" HorizontalOptions="Fill">
 
@@ -185,7 +197,7 @@
                             <VerticalStackLayout Spacing="2" WidthRequest="150">
                                 <Label Text="Stock" Style="{StaticResource HeaderLabel}" />
                                 <Picker x:Name="StockPicker" Title="Symbol" WidthRequest="150"
-                    SelectedIndexChanged="OnSymbolChanged">
+                                        SelectedIndexChanged="OnSymbolChanged">
                                     <Picker.Items>
                                         <x:String>AAPL</x:String>
                                         <x:String>MSFT</x:String>
@@ -207,21 +219,21 @@
                                     </Grid.ColumnDefinitions>
 
                                     <Entry x:Name="TriggerEntry"
-                       Grid.Column="0"
-                       Style="{StaticResource EntryNumericDense}"
-                       Placeholder="100.00"
-                       Keyboard="Numeric"
-                       TextChanged="OnTriggerPriceTextChanged"/>
+                                           Grid.Column="0"
+                                           Style="{StaticResource EntryNumericDense}"
+                                           Placeholder="100.00"
+                                           Keyboard="Numeric"
+                                           TextChanged="OnTriggerPriceTextChanged"/>
 
                                     <Grid Grid.Column="1" RowDefinitions="Auto,Auto" RowSpacing="4"
-                      VerticalOptions="Center">
+                                          VerticalOptions="Center">
                                         <Button Text="▲"
-                            Style="{StaticResource SpinButton}"
-                            Clicked="OnIncreaseTriggerClicked"/>
+                                                Style="{StaticResource SpinButton}"
+                                                Clicked="OnIncreaseTriggerClicked"/>
                                         <Button Text="▼"
-                            Grid.Row="1"
-                            Style="{StaticResource SpinButton}"
-                            Clicked="OnDecreaseTriggerClicked"/>
+                                                Grid.Row="1"
+                                                Style="{StaticResource SpinButton}"
+                                                Clicked="OnDecreaseTriggerClicked"/>
                                     </Grid>
                                 </Grid>
                             </VerticalStackLayout>
@@ -231,11 +243,11 @@
                                 <Label Text="Type" Style="{StaticResource HeaderLabel}"/>
                                 <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
                                     <RadioButton x:Name="CallRadioButton" Content="Call" IsChecked="True"
-                             TextColor="{DynamicResource PrimaryTextColor}"
-                             CheckedChanged="OnCallOptionCheckedChanged"/>
+                                                 TextColor="{DynamicResource PrimaryTextColor}"
+                                                 CheckedChanged="OnCallOptionCheckedChanged"/>
                                     <RadioButton x:Name="PutRadioButton" Content="Put"
-                             TextColor="{DynamicResource PrimaryTextColor}"
-                             CheckedChanged="OnPutOptionCheckedChanged"/>
+                                                 TextColor="{DynamicResource PrimaryTextColor}"
+                                                 CheckedChanged="OnPutOptionCheckedChanged"/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
 
@@ -244,46 +256,43 @@
                                 <Label Text="Order" Style="{StaticResource HeaderLabel}" />
                                 <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
                                     <RadioButton x:Name="MktRadioButton" Content="MKT" IsChecked="True"
-                             TextColor="{DynamicResource PrimaryTextColor}"/>
+                                                 TextColor="{DynamicResource PrimaryTextColor}"/>
                                     <RadioButton x:Name="LmtRadioButton" Content="LMT"
-                             TextColor="{DynamicResource PrimaryTextColor}"/>
+                                                 TextColor="{DynamicResource PrimaryTextColor}"/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
 
-                            <!-- Offset (düzenlendi) -->
-                            <!-- Offset (2 preset + +) -->
+                            <!-- Offset -->
                             <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="170">
                                 <Label Text="Offset" Style="{StaticResource HeaderLabel}"/>
 
                                 <Entry x:Name="OffsetEntry"
-                                   Style="{StaticResource EntryNumericDense}"
-                                   WidthRequest="120"
-                                   HorizontalTextAlignment="Center"
-                                   Placeholder="0.05" Keyboard="Numeric" />
+                                       Style="{StaticResource EntryNumericDense}"
+                                       WidthRequest="120"
+                                       HorizontalTextAlignment="Center"
+                                       Placeholder="0.05" Keyboard="Numeric" />
 
                                 <HorizontalStackLayout Spacing="4" VerticalOptions="Center" Margin="0,4,0,0">
                                     <Button x:Name="BtnOff1" Text="0.05"
-                                    Style="{StaticResource ChipButton}"
-                                    Clicked="OnHotPresetClicked" CommandParameter="off"/>
+                                            Style="{StaticResource ChipButton}"
+                                            Clicked="OnHotPresetClicked" CommandParameter="off"/>
 
                                     <Button x:Name="BtnOff2" Text="0.10"
-                                    Style="{StaticResource ChipButton}"
-                                    Clicked="OnHotPresetClicked" CommandParameter="off"/>
+                                            Style="{StaticResource ChipButton}"
+                                            Clicked="OnHotPresetClicked" CommandParameter="off"/>
 
                                     <Button Text="+"
-                                    WidthRequest="36" MinimumWidthRequest="36" Padding="0"
-                                    Style="{StaticResource ChipButton}"
-                                    Clicked="OnHotAddClicked" CommandParameter="off"/>
+                                            WidthRequest="36" MinimumWidthRequest="36" Padding="0"
+                                            Style="{StaticResource ChipButton}"
+                                            Clicked="OnHotAddClicked" CommandParameter="off"/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
-
-
 
                             <!-- Strike -->
                             <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="150">
                                 <Label Text="Strike" Style="{StaticResource HeaderLabel}" />
                                 <Picker x:Name="StrikePicker" Title="Strike" WidthRequest="150"
-                                    SelectedIndexChanged="OnStrikeChanged">
+                                        SelectedIndexChanged="OnStrikeChanged">
                                     <Picker.Items>
                                         <x:String>120</x:String>
                                         <x:String>125</x:String>
@@ -298,7 +307,7 @@
                             <VerticalStackLayout Spacing="2" WidthRequest="170">
                                 <Label Text="Expiry" Style="{StaticResource HeaderLabel}" />
                                 <Picker x:Name="ExpPicker" Title="dd/mm/yyyy" WidthRequest="170"
-                    SelectedIndexChanged="OnExpirationChanged">
+                                        SelectedIndexChanged="OnExpirationChanged">
                                     <Picker.Items>
                                         <x:String>2025-09-20</x:String>
                                         <x:String>2025-10-18</x:String>
@@ -317,52 +326,44 @@
                         </HorizontalStackLayout>
                     </Grid>
 
-
-
-                    <!-- RIGHT COLUMN: Place Order + Add Order + Actions -->
+                    <!-- RIGHT COLUMN -->
                     <VerticalStackLayout Grid.Row="0" Grid.Column="1" Grid.RowSpan="2"
-                     Spacing="10" HorizontalOptions="End" Padding="0,0,12,0">
+                                         Spacing="10" HorizontalOptions="End" Padding="0,0,12,0">
                         <Button Text="Place Order"
-                        Style="{StaticResource PrimaryAction}"
-                        Clicked="OnCreateOrderClicked"/>
+                                Style="{StaticResource PrimaryAction}"
+                                Clicked="OnCreateOrderClicked"/>
 
-                         <!-- ALT ALTA: Add Order -->
                         <Button Text="+ Add Order"
-                        Style="{StaticResource ActionOcean}"
-                        Clicked="OnAddOrderClicked"/>
+                                Style="{StaticResource ActionOcean}"
+                                Clicked="OnAddOrderClicked"/>
                         <Entry x:Name="numberEntry"
-                           Placeholder="Enter 1-9"
-                           Keyboard="Numeric"
-                           MaxLength="1"
-                           TextChanged="OnNumberEntryTextChanged"/>
-
-
+                               Placeholder="Enter 1-9"
+                               Keyboard="Numeric"
+                               MaxLength="1"
+                               TextChanged="OnNumberEntryTextChanged"/>
                     </VerticalStackLayout>
 
-
-
-                    <!-- BOTTOM LEFT: Entry + chip buttons -->
-                <!-- BOTTOM: entries + chip presets (no horizontal scroll) -->
-                <Grid Grid.Row="1" Grid.Column="0">
-                    <HorizontalStackLayout Spacing="10" Padding="6,4">
+                    <!-- BOTTOM: entries + chip presets -->
+                    <Grid Grid.Row="1" Grid.Column="0">
+                        <HorizontalStackLayout Spacing="10" Padding="6,4">
 
                             <!-- Position Size -->
                             <Grid HorizontalOptions="Start"
-                              RowDefinitions="Auto,Auto"
-                              ColumnDefinitions="Auto,*"
-                              Padding="12,0">
-                                                <Label Grid.Row="0" Grid.ColumnSpan="2"
-                           Text="Position Size ($)"
-                           Style="{StaticResource HeaderLabel}" />
+                                  RowDefinitions="Auto,Auto"
+                                  ColumnDefinitions="Auto,*"
+                                  Padding="12,0">
+                                <Label Grid.Row="0" Grid.ColumnSpan="2"
+                                       Text="Position Size ($)"
+                                       Style="{StaticResource HeaderLabel}" />
 
-                                                <Entry x:Name="PositionEntry"
-                           Grid.Row="1" Grid.Column="0"
-                           WidthRequest="120"
-                           HorizontalOptions="Start"
-                           HorizontalTextAlignment="Center"
-                           Placeholder="500"
-                           Keyboard="Numeric"
-                           TextChanged="OnPositionTextChanged" />
+                                <Entry x:Name="PositionEntry"
+                                       Grid.Row="1" Grid.Column="0"
+                                       WidthRequest="120"
+                                       HorizontalOptions="Start"
+                                       HorizontalTextAlignment="Center"
+                                       Placeholder="500"
+                                       Keyboard="Numeric"
+                                       TextChanged="OnPositionTextChanged" />
 
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
                                     <Button x:Name="BtnPos1" Text="$5K"  Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="pos"/>
@@ -372,13 +373,12 @@
                                 </HorizontalStackLayout>
                             </Grid>
 
-
                             <!-- Stop Loss -->
-                        <Grid HorizontalOptions="Start" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" Margin="8,0,0,0" Padding="12,0">
-                            <Label Grid.Row="0" Grid.ColumnSpan="2" Text="Stop Loss ($)" Style="{StaticResource HeaderLabel}" />
-                            <Entry x:Name="StopLossEntry" Grid.Row="1" Grid.Column="0" WidthRequest="140"
-                                 Placeholder="130.00" Keyboard="Numeric" TextChanged="OnStopLossTextChanged"
-                                 HorizontalOptions="Start" HorizontalTextAlignment="Center"/>
+                            <Grid HorizontalOptions="Start" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" Margin="8,0,0,0" Padding="12,0">
+                                <Label Grid.Row="0" Grid.ColumnSpan="2" Text="Stop Loss ($)" Style="{StaticResource HeaderLabel}" />
+                                <Entry x:Name="StopLossEntry" Grid.Row="1" Grid.Column="0" WidthRequest="140"
+                                       Placeholder="130.00" Keyboard="Numeric" TextChanged="OnStopLossTextChanged"
+                                       HorizontalOptions="Start" HorizontalTextAlignment="Center"/>
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
                                     <Button x:Name="BtnStop1" Text="$0.20" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop"/>
                                     <Button x:Name="BtnStop2" Text="$0.50" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop"/>
@@ -387,12 +387,12 @@
                                 </HorizontalStackLayout>
                             </Grid>
 
-                        <!-- Profit Taking -->
-                        <Grid HorizontalOptions="Start" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" Padding="12,0">
-                            <Label Grid.Row="0" Grid.ColumnSpan="2" Text="Profit Taking" Style="{StaticResource HeaderLabel}"/>
-                            <Entry x:Name="ProfitEntry" Grid.Row="1" Grid.Column="0" WidthRequest="90"
-                             Placeholder="%" Keyboard="Numeric"
-                             HorizontalOptions="Start" HorizontalTextAlignment="Center" />
+                            <!-- Profit Taking -->
+                            <Grid HorizontalOptions="Start" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" Padding="12,0">
+                                <Label Grid.Row="0" Grid.ColumnSpan="2" Text="Profit Taking" Style="{StaticResource HeaderLabel}"/>
+                                <Entry x:Name="ProfitEntry" Grid.Row="1" Grid.Column="0" WidthRequest="90"
+                                       Placeholder="%" Keyboard="Numeric"
+                                       HorizontalOptions="Start" HorizontalTextAlignment="Center" />
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
                                     <Button x:Name="BtnProf1" Text="10%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof"/>
                                     <Button x:Name="BtnProf2" Text="20%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof"/>
@@ -401,37 +401,33 @@
                                 </HorizontalStackLayout>
                             </Grid>
 
-                        <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="6" HorizontalOptions="End" Padding="0,0,16,0">
-                            <Label Text="Actions" Style="{StaticResource HeaderLabel}" />
-                            <HorizontalStackLayout Spacing="6">
-                                <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
-                                <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnBreakevenClicked"/>
-                            </HorizontalStackLayout>
-                        </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="6" HorizontalOptions="End" Padding="0,0,16,0">
+                                <Label Text="Actions" Style="{StaticResource HeaderLabel}" />
+                                <HorizontalStackLayout Spacing="6">
+                                    <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
+                                    <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnBreakevenClicked"/>
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
 
-                       
-                    </HorizontalStackLayout>
-                        </Grid>
-                        
-                
+                        </HorizontalStackLayout>
+                    </Grid>
 
-                        <!-- Display Label -->
-                        <Label x:Name="DisplayLabel"
-                       Grid.Row="2" Grid.ColumnSpan="2"
-                       TextColor="{DynamicResource PrimaryTextColor}"
-                       FontSize="14"
-                       Margin="6,10,6,0"/>
+                    <!-- Display Label -->
+                    <Label x:Name="DisplayLabel"
+                           Grid.Row="2" Grid.ColumnSpan="2"
+                           TextColor="{DynamicResource PrimaryTextColor}"
+                           FontSize="14"
+                           Margin="6,10,6,0"/>
 
-                        <!-- Orders Container -->
-                        <VerticalStackLayout x:Name="OrdersContainer"
-                            Grid.Row="3" Grid.ColumnSpan="2"
-                            Spacing="8"
-                            Padding="6"/>       
-
+                    <!-- Orders Container -->
+                    <VerticalStackLayout x:Name="OrdersContainer"
+                                         Grid.Row="3" Grid.ColumnSpan="2"
+                                         Spacing="8"
+                                         Padding="6"/>
 
                 </Grid>
-        </Frame>
+            </Frame>
 
-    </Grid>
+        </Grid>
     </ScrollView>
 </ContentPage>
