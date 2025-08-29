@@ -2,6 +2,7 @@
 using ArcTriggerUI.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using CommunityToolkit.Maui;
 
 
 
@@ -16,6 +17,7 @@ namespace ArcTriggerUI
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .UseMauiCommunityToolkit()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");

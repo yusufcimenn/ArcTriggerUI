@@ -64,7 +64,7 @@
             <Setter Property="TextColor"
                     Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
             <Setter Property="BorderColor"
-                    Value="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}" />
+                    Value="{AppThemeBinding Light=#E5E7EB, Dark=#FFFFFF}" />
             <Setter Property="BorderWidth" Value="1" />
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="Margin" Value="4,0" />
@@ -84,7 +84,7 @@
             <Setter Property="TextColor"
                     Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
             <Setter Property="BorderColor"
-                    Value="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}" />
+                    Value="{AppThemeBinding Light=#E5E7EB, Dark=#FFFFFF}" />
             <Setter Property="BorderWidth" Value="1" />
         </Style>
 
@@ -99,10 +99,11 @@
             <Setter Property="TextColor"
                     Value="{AppThemeBinding Light=#111827, Dark=#F3F4F6}" />
             <Setter Property="BorderColor"
-                    Value="{AppThemeBinding Light=#000000, Dark=#2A2D34}" />
+                    Value="{AppThemeBinding Light=#000000, Dark=#FFFFFF}" />
             <Setter Property="BorderWidth" Value="1" />
             <Setter Property="Padding" Value="8,2" />
             <Setter Property="Margin" Value="2,0" />
+            
         </Style>
 
         <!-- Actions -->
@@ -277,11 +278,21 @@
                                 <HorizontalStackLayout Spacing="4" VerticalOptions="Center" Margin="0,4,0,0">
                                     <Button x:Name="BtnOff1" Text="0.05"
                                             Style="{StaticResource ChipButton}"
-                                            Clicked="OnHotPresetClicked" CommandParameter="off"/>
+                                            Clicked="OnHotPresetClicked" CommandParameter="off">
 
-                                    <Button x:Name="BtnOff2" Text="0.10"
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+
+                                        <Button x:Name="BtnOff2" Text="0.10"
                                             Style="{StaticResource ChipButton}"
-                                            Clicked="OnHotPresetClicked" CommandParameter="off"/>
+                                            Clicked="OnHotPresetClicked" CommandParameter="off">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
 
                                     <Button Text="+"
                                             WidthRequest="36" MinimumWidthRequest="36" Padding="0"
@@ -368,9 +379,25 @@
                                        TextChanged="OnPositionTextChanged" />
 
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                    <Button x:Name="BtnPos1" Text="$5K"  Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="pos"/>
-                                    <Button x:Name="BtnPos2" Text="$10K" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="pos"/>
-                                    <Button x:Name="BtnPos3" Text="$25K" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="pos"/>
+                                    <Button x:Name="BtnPos1" Text="$5K"  Style="{StaticResource ChipButton}" 
+                                            Clicked="OnHotPresetClicked" CommandParameter="pos">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+                                    <Button x:Name="BtnPos2" Text="$10K" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="pos">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+                                    <Button x:Name="BtnPos3" Text="$25K" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="pos">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
                                     <Button Text="+" Style="{StaticResource ChipButton}" Clicked="OnHotAddClicked" CommandParameter="pos"/>
                                 </HorizontalStackLayout>
                             </Grid>
@@ -382,9 +409,24 @@
                                        Placeholder="130.00" Keyboard="Numeric" TextChanged="OnStopLossTextChanged"
                                        HorizontalOptions="Start" HorizontalTextAlignment="Center"/>
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                    <Button x:Name="BtnStop1" Text="$0.20" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop"/>
-                                    <Button x:Name="BtnStop2" Text="$0.50" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop"/>
-                                    <Button x:Name="BtnStop3" Text="$1.00" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop"/>
+                                    <Button x:Name="BtnStop1" Text="$0.20" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+                                    <Button x:Name="BtnStop2" Text="$0.50" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+                                    <Button x:Name="BtnStop3" Text="$1.00" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
                                     <Button Text="+" Style="{StaticResource ChipButton}" Clicked="OnHotAddClicked" CommandParameter="stop"/>
                                 </HorizontalStackLayout>
                             </Grid>
@@ -396,9 +438,24 @@
                                        Placeholder="%" Keyboard="Numeric"
                                        HorizontalOptions="Start" HorizontalTextAlignment="Center" />
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                    <Button x:Name="BtnProf1" Text="10%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof"/>
-                                    <Button x:Name="BtnProf2" Text="20%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof"/>
-                                    <Button x:Name="BtnProf3" Text="30%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof"/>
+                                    <Button x:Name="BtnProf1" Text="10%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+                                    <Button x:Name="BtnProf2" Text="20%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+                                    <Button x:Name="BtnProf3" Text="30%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof">
+
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
                                     <Button Text="+" Style="{StaticResource ChipButton}" Clicked="OnHotAddClicked" CommandParameter="prof"/>
                                 </HorizontalStackLayout>
                             </Grid>
