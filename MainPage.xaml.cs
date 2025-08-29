@@ -65,9 +65,10 @@ namespace ArcTriggerUI
                 if (item != null)
                     item.Text = savedTheme == AppTheme.Dark ? "Light" : "Dark";
             }
+            _apiService = apiService;
         }
-            _apiService = apiService; 
-        }
+            
+        
 
         #region Order Add Section || Sipariş Ekleme Bölümü
         private void OnSendClicked(object sender, EventArgs e)
