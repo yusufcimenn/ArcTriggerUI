@@ -1,4 +1,9 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using ArcTriggerUI.Interfaces;
+using ArcTriggerUI.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+
+
 
 namespace ArcTriggerUI
 {
@@ -6,6 +11,8 @@ namespace ArcTriggerUI
     {
         public static MauiApp CreateMauiApp()
         {
+            
+
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
@@ -14,9 +21,11 @@ namespace ArcTriggerUI
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+            builder.Services.AddSingleton<IApiService, ApiService>();
+            builder.Services.AddHttpClient<ApiService>();
 
 #if DEBUG
-    		builder.Logging.AddDebug();
+            builder.Logging.AddDebug();
 #endif
 
             return builder.Build();

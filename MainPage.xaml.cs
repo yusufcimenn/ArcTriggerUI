@@ -1,4 +1,7 @@
 ﻿using ArcTriggerUI.Dashboard;
+using ArcTriggerUI.Dtos;
+using ArcTriggerUI.Interfaces;
+using ArcTriggerUI.Services;
 using System.Globalization;
 using System.Resources;
 using System.Text.Json;
@@ -48,10 +51,12 @@ namespace ArcTriggerUI
         private const string PrefKey = "possize.hotbuttons.v1";
         #endregion
 
-        public MainPage()
+        private readonly IApiService _apiService;
+
+        public MainPage(IApiService apiService)
         {
             InitializeComponent();
-            InitHotSections();
+            _apiService = apiService; 
         }
 
         #region Order Add Section || Sipariş Ekleme Bölümü
@@ -556,12 +561,131 @@ namespace ArcTriggerUI
                 Application.Current.CloseWindow(w);
         }
         #endregion
-        
+
         private void OnClearOrdersClicked(object sender, EventArgs e)
         {
             OrdersContainer.Children.Clear();
         }
 
+        #region Api Request || Api İstek 4
+        private async void OnGetTickleClicked(object sender, EventArgs e)
+        {
 
+            try
+            {
+                string url = "http://192.168.1.112:8000/api/tickle";
+                string result = await _apiService.GetAsync(url);
+                await DisplayAlert("Auto Call", $"API Response: {result}", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+
+        }
+
+        private async void OnGetStatusClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                string url = "http://192.168.1.112:8000/api/status";
+                string result = await _apiService.GetAsync(url);
+                await DisplayAlert("Auto Call", $"API Response: {result}", "OK");
+
+            }
+            catch (Exception ex)
+            {
+
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        private async void OnPostSymbolClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                string url = "http://192.168.1.112:8000/api/getSymbol";
+
+                var request = new ResultSymbols
+                {
+                    symbol = "AAPL",
+                    name = true,
+                    secType = "STK"
+                };
+
+                // TResponse artık ResultSymbols olmalı, string değil
+                List<ResultSymbols> result = await _apiService.PostAsync<ResultSymbols, List<ResultSymbols>>(url, request);
+
+                var first = result.FirstOrDefault();
+                if (first != null)
+                {
+                    await DisplayAlert("Success",
+                        $"Symbol: {first.symbol}, Name: {first.name}, SecType: {first.secType}", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        //protected override async void OnAppearing()
+        //{
+        //    base.OnAppearing();
+        //    try
+        //    {
+        //        string url = "http://192.168.1.112:8000/api/getSymbol";
+
+        //        var request = new ResultSymbols
+        //        {
+        //            symbol = "AAPL",
+        //            name = true,
+        //            secType = "STK"
+        //        };
+
+        //        // TResponse artık ResultSymbols olmalı, string değil
+        //        List<ResultSymbols> result = await _apiService.PostAsync<ResultSymbols, List<ResultSymbols>>(url, request);
+
+        //        var first = result.FirstOrDefault();
+        //        if (first != null)
+        //        {
+        //            await DisplayAlert("Success",
+        //                $"Symbol: {first.symbol}, Name: {first.name}, SecType: {first.secType}", "OK");
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        await DisplayAlert("Error", ex.Message, "OK");
+        //    }
+        //}
+
+        private async void OnDeleteSymbolClicked(object sender, EventArgs e)
+        {
+            int symbolId = 265598; // veya kullanıcıdan alabilirsiniz
+
+            bool confirm = await DisplayAlert(
+                "Delete Confirmation",
+                $"Are you sure you want to delete order '{symbolId}'?",
+                "OK",
+                "Cancel"
+            );
+
+            if (!confirm)
+                return;
+
+            try
+            {
+                string url = "http://192.168.1.112:8000/api/orders/";
+                await _apiService.DeleteAsync(url,symbolId);
+
+                await DisplayAlert("Success", $"Symbol '{symbolId}' deleted successfully!", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        #endregion
     }
 }
