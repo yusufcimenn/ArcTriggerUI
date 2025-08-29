@@ -1,5 +1,6 @@
 ﻿using ArcTriggerUI.Dashboard;
 using System.Globalization;
+using System.Resources;
 using System.Text.Json;
 
 namespace ArcTriggerUI
@@ -28,6 +29,7 @@ namespace ArcTriggerUI
     public partial class MainPage : ContentPage
 
     {
+        #region Section Config || Buton Bölümleri Ayarları
         class SectionConfig
         {
             public string Id = "";
@@ -44,19 +46,23 @@ namespace ArcTriggerUI
         // Always 3 slots
         private readonly string[] _selected = new[] { "5K", "10K", "25K" };
         private const string PrefKey = "possize.hotbuttons.v1";
+        #endregion
+
         public MainPage()
         {
             InitializeComponent();
             InitHotSections();
         }
+
+        #region Order Add Section || Sipariş Ekleme Bölümü
         private void OnSendClicked(object sender, EventArgs e)
         {
             if (int.TryParse(numberEntry.Text, out int start))
             {
-                if (numberEntry.Text == null) 
-                { 
+                if (numberEntry.Text == null)
+                {
                     var newOrder = new OrderFrame();
-                OrdersContainer.Children.Add(newOrder);
+                    OrdersContainer.Children.Add(newOrder);
                 }
                 else
                 {
@@ -66,11 +72,12 @@ namespace ArcTriggerUI
                         OrdersContainer.Children.Add(newOrder);
                     }
                 }
-            } 
+            }
 
         }
+        #endregion
 
-        /// /// OZELLESTIRILEBILIR 
+        #region Button Sections || Özelleştirilebilir Buton Bölümleri
         void InitHotSections()
         {
             sections["pos"] = new SectionConfig
@@ -123,8 +130,9 @@ namespace ArcTriggerUI
                 ApplySectionButtons(s);
             }
         }
+        #endregion
 
-        // Tum preset butonlari icin tek handler
+        #region Buton Event Handlers || Buton Olay İşleyicileri
         void OnHotPresetClicked(object sender, EventArgs e)
         {
             if (sender is not Button b || b.CommandParameter is not string id) return;
@@ -133,8 +141,9 @@ namespace ArcTriggerUI
             var valForEntry = ValueForEntry(b.Text, s.Mode);
             s.TargetEntry.Text = valForEntry;
         }
+        #endregion
 
-        // Tum + butonlari icin tek handler
+        #region HotAdd Event Handler || HotAdd Olay İşleyicisi
         async void OnHotAddClicked(object sender, EventArgs e)
         {
             if (sender is not Button b || b.CommandParameter is not string id) return;
@@ -166,7 +175,9 @@ namespace ArcTriggerUI
             ApplySectionButtons(s);
         }
 
-        // Yardimci fonksiyonlar
+        #endregion
+
+        #region Buton Yardımcı Metotları || Button Helper Methods
         void ApplySectionButtons(SectionConfig s)
         {
             for (int i = 0; i < s.Slots.Length && i < s.Selected.Length; i++)
@@ -192,9 +203,9 @@ namespace ArcTriggerUI
             }
             catch { }
         }
+        #endregion
 
-
-        // Formatlama ve parse
+        #region Buton Format Yardımcı Metotları || Button Format Helper Methods
         static string NormalizeForMode(string input, SectionMode mode)
         {
             var t = input.Trim().ToUpperInvariant().Replace("$", "");
@@ -227,7 +238,9 @@ namespace ArcTriggerUI
             }
             return t;
         }
+        #endregion
 
+        #region Buton Değer Yardımcı Metotları || Button Value Helper Methods
         static string DisplayForButton(string normalized, SectionMode mode)
         {
             return mode switch
@@ -239,7 +252,9 @@ namespace ArcTriggerUI
                 _ => normalized
             };
         }
+        #endregion
 
+        #region Buton Değer Dönüştürme Metodu || Button Value Conversion Method
         static string ValueForEntry(string buttonText, SectionMode mode)
         {
             var s = buttonText.Trim().ToUpperInvariant().Replace("$", "");
@@ -277,8 +292,10 @@ namespace ArcTriggerUI
             }
             return "";
         }
+        #endregion
 
-        //////////////// OZELLESTIRILEBILIR
+
+        #region Number Entry Text Changed || Sayı Girişi Metin Değişikliği
 
         private void OnNumberEntryTextChanged(object sender, TextChangedEventArgs e)
         {
@@ -292,22 +309,19 @@ namespace ArcTriggerUI
                 ((Entry)sender).Text = e.OldTextValue;
             }
         }
+        #endregion
 
-        private void OnAutoFetchClicked(object sender, EventArgs e)
-        {
-            // TODO implement later
-        }
-
+        #region Order Add Button || Sipariş Ekleme Butonu
         private void OnAddOrderClicked(object sender, EventArgs e)
         {
             if (int.TryParse(numberEntry.Text, out int start))
             {
-              
-                    for (int i = 0; i < start; i++)
-                    {
-                        var newOrder = new OrderFrame();
-                        OrdersContainer.Children.Add(newOrder);
-                    }
+
+                for (int i = 0; i < start; i++)
+                {
+                    var newOrder = new OrderFrame();
+                    OrdersContainer.Children.Add(newOrder);
+                }
             }
             else
             {
@@ -316,7 +330,9 @@ namespace ArcTriggerUI
             }
         }
 
-        // Symbol Picker
+        #endregion
+
+        #region Seçili Sembol || Selected Symbol
         private void OnSymbolChanged(object sender, EventArgs e)
         {
             if (sender is Picker picker && picker.SelectedIndex != -1)
@@ -358,8 +374,9 @@ namespace ArcTriggerUI
                 }
             }
         }
+        #endregion
 
-        // Call / Put
+        #region Order Mode || Sipariş Modu
         private void OnCallOptionCheckedChanged(object sender, CheckedChangedEventArgs e)
         {
             if (e.Value) Console.WriteLine("Order type: Call");
@@ -369,13 +386,16 @@ namespace ArcTriggerUI
         {
             if (e.Value) Console.WriteLine("Order type: Put");
         }
+        #endregion
 
-        // Trigger price
+        #region Order Price Mode || Sipariş Fiyat Modu
         private void OnTriggerPriceTextChanged(object sender, TextChangedEventArgs e)
         {
             Console.WriteLine($"Trigger price: {e.NewTextValue}");
         }
+        #endregion
 
+        #region Offset Text Changed || Offset Metin Değişikliği
         private void OnIncreaseTriggerClicked(object sender, EventArgs e)
         {
             if (this.FindByName<Entry>("TriggerEntry") is Entry entry && decimal.TryParse(entry.Text, out decimal value))
@@ -383,7 +403,9 @@ namespace ArcTriggerUI
                 entry.Text = (value + 1).ToString("F2");
             }
         }
+        #endregion
 
+        #region Decrease Trigger Clicked || Tetikleyici Azaltma Tıklandı
         private void OnDecreaseTriggerClicked(object sender, EventArgs e)
         {
             if (this.FindByName<Entry>("TriggerEntry") is Entry entry && decimal.TryParse(entry.Text, out decimal value))
@@ -391,8 +413,9 @@ namespace ArcTriggerUI
                 entry.Text = (value - 1).ToString("F2");
             }
         }
+        #endregion
 
-        // Strike Picker
+        #region Seçili Strike || Selected Strike
         private void OnStrikeChanged(object sender, EventArgs e)
         {
             if (sender is Picker picker && picker.SelectedIndex != -1)
@@ -406,8 +429,9 @@ namespace ArcTriggerUI
                 picker.Title = strike; // Picker Title güncelle
             }
         }
+        #endregion
 
-        // Expiry Picker
+        #region Expiry Picker Changed || Vade Seçici Değişti
         private void OnExpirationChanged(object sender, EventArgs e)
         {
             if (sender is Picker picker && picker.SelectedIndex != -1)
@@ -421,29 +445,24 @@ namespace ArcTriggerUI
                 picker.Title = expiry; // Picker Title güncelle
             }
         }
+        #endregion
 
-        // Position size
+        #region Position Size Text Changed || Pozisyon Boyutu Metin Değişikliği
         private void OnPositionTextChanged(object sender, TextChangedEventArgs e)
         {
             Console.WriteLine($"Position size: {e.NewTextValue}");
         }
+        #endregion
 
-        private void OnPositionPresetClicked(object sender, EventArgs e)
-        {
-            if (sender is Button b)
-            {
-                //var val = ParseHotToInt(b.Text);
-                //if (val > 0)
-                //    PositionEntry.Text = val.ToString(CultureInfo.InvariantCulture);
-            }
-        }
 
-        // Stop loss
+        #region Stop Loss Text Changed || Stop Loss Metin Değişikliği
         private void OnStopLossTextChanged(object sender, TextChangedEventArgs e)
         {
             Console.WriteLine($"Stop loss: {e.NewTextValue}");
         }
+        #endregion
 
+        #region Stop Loss Preset Clicked || Stop Loss Ön Ayarı Tıklandı
         private void OnStopLossPreset(object sender, EventArgs e)
         {
             if (sender is Button btn && this.FindByName<Entry>("StopLossEntry") is Entry entry)
@@ -451,8 +470,9 @@ namespace ArcTriggerUI
                 entry.Text = btn.Text.Replace("$", "");
             }
         }
+        #endregion
 
-        // Final action
+        #region Create Order Clicked || Sipariş Oluşturma Tıklandı
         private void OnCreateOrderClicked(object sender, EventArgs e)
         {
             var symbol = (StockPicker.SelectedIndex != -1) ? StockPicker.Items[StockPicker.SelectedIndex] : "";
@@ -490,7 +510,9 @@ namespace ArcTriggerUI
                 label.Text = order.ToString();
             }
         }
+        #endregion
 
+        #region Profit Text Changed || Kar Metin Değişikliği
         private void OnProfitPresetClicked(object sender, EventArgs e)
         {
             if (sender is Button btn && this.FindByName<Entry>("ProfitEntry") is Entry entry)
@@ -499,17 +521,23 @@ namespace ArcTriggerUI
                 Console.WriteLine($"Profit taking set to {entry.Text}%");
             }
         }
+        #endregion
 
+        #region Trail Text Changed || Trail Metin Değişikliği
         private void OnTrailClicked(object sender, EventArgs e)
         {
             Console.WriteLine("Invalidate action triggered");
         }
+        #endregion
 
+        #region Breakeven Clicked || Breakeven Tıklandı
         private void OnBreakevenClicked(object sender, EventArgs e)
         {
-            Console.WriteLine("Breakeven action triggered");
-        }
 
+        }
+        #endregion
+
+        #region Offset Preset Clicked || Offset Ön Ayarı Tıklandı
         private void OnOffsetPresetClicked(object sender, EventArgs e)
         {
             if (sender is Button btn && this.FindByName<Entry>("OffsetEntry") is Entry entry)
@@ -518,13 +546,22 @@ namespace ArcTriggerUI
                 Console.WriteLine($"Offset set to {entry.Text}");
             }
         }
+        #endregion
 
-        // Cancel butonunda bu pencereyi kapat
+        #region Cancel Clicked || İptal Tıklandı
         void OnCancelClicked(object sender, EventArgs e)
         {
             var w = this.Window;
             if (w != null && Application.Current != null)
                 Application.Current.CloseWindow(w);
         }
+        #endregion
+        
+        private void OnClearOrdersClicked(object sender, EventArgs e)
+        {
+            OrdersContainer.Children.Clear();
+        }
+
+
     }
 }
