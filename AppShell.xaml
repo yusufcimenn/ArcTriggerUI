@@ -7,16 +7,16 @@
     xmlns:pages="clr-namespace:ArcTriggerUI.Pages"
     Title="ArcTriggerUI">
 
-    <!-- Açılış sayfan -->
-    <ShellContent 
-        
-        ContentTemplate="{DataTemplate pages:LoginPageWV}"
-        Route="MyNewPage" />
-
-    <!-- Mevcut MainPage -->
+    <!-- Açılış sayfan: MainPage -->
     <ShellContent 
         Title="ARC TRIGGER"
         ContentTemplate="{DataTemplate local:MainPage}"
         Route="MainPage" />
+
+    <!-- Diğer sayfalar -->
+    <ShellContent 
+        Title="Login Page"
+        ContentTemplate="{DataTemplate pages:LoginPageWV}"
+        Route="MyNewPage" />
 
 </Shell>
