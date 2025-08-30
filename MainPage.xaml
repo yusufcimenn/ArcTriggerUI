@@ -215,7 +215,7 @@
                             <!-- Trigger -->
                             <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="170">
                                 <Label Text="Trigger Level" Style="{StaticResource HeaderLabel}" />
-                                <Grid ColumnSpacing="6">
+                                <Grid ColumnSpacing="6" Margin="0" Padding="0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="110" />
                                         <ColumnDefinition Width="28" />
@@ -244,7 +244,7 @@
                             <!-- Type -->
                             <VerticalStackLayout Spacing="2" WidthRequest="150">
                                 <Label Text="Type" Style="{StaticResource HeaderLabel}"/>
-                                <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                                <HorizontalStackLayout Spacing="5" VerticalOptions="Center">
                                     <RadioButton x:Name="CallRadioButton" Content="Call" IsChecked="True"
                                                  TextColor="{DynamicResource PrimaryTextColor}"
                                                  CheckedChanged="OnCallOptionCheckedChanged"/>
@@ -464,7 +464,7 @@
                                 <Label Text="Actions" Style="{StaticResource HeaderLabel}" />
                                 <HorizontalStackLayout Spacing="6">
                                     <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
-                                    <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OngGetSecdef"/>
+                                    <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked=""/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
 

@@ -1,5 +1,7 @@
-﻿using ArcTriggerUI.Dashboard;
+﻿using ArcTriggerUI.Const;
+using ArcTriggerUI.Dashboard;
 using ArcTriggerUI.Dtos;
+using ArcTriggerUI.Dtos.Orders;
 using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
 using System.Globalization;
@@ -10,25 +12,6 @@ using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
 namespace ArcTriggerUI
 {
 
-    public class Order
-    {
-        public string Symbol { get; set; }
-        public decimal TriggerPrice { get; set; }
-        public string OrderType { get; set; } // Call / Put
-        public string OrderMode { get; set; } // MKT / LMT
-        public decimal Offset { get; set; }
-        public string Strike { get; set; }
-        public string Expiry { get; set; }
-        public decimal PositionSize { get; set; }
-        public decimal StopLoss { get; set; }
-        public decimal ProfitTaking { get; set; }
-        public bool AlphaFlag { get; set; }
-
-        public override string ToString()
-        {
-            return $"Symbol: {Symbol}, Trigger: {TriggerPrice}, Type: {OrderType}, Mode: {OrderMode}, Offset: {Offset}, Strike: {Strike}, Expiry: {Expiry}, Position: {PositionSize}, StopLoss: {StopLoss}, Profit: {ProfitTaking}, Alpha: {AlphaFlag}";
-        }
-    }
 
     public partial class MainPage : ContentPage
 
@@ -161,7 +144,7 @@ namespace ArcTriggerUI
         #endregion
 
         #region HotAdd Event Handler || HotAdd Olay İşleyicisi
-        async void OnHotAddClicked(object sender, EventArgs e)
+        public async void OnHotAddClicked(object sender, EventArgs e)
         {
             if (sender is not Button b || b.CommandParameter is not string id) return;
             if (!sections.TryGetValue(id, out var s)) return;
@@ -508,7 +491,7 @@ namespace ArcTriggerUI
             var profit = decimal.TryParse(ProfitEntry.Text, out var pr) ? pr : 0;
             var alpha = AlphaCheck.IsChecked;
 
-            var order = new Order
+            var order = new Dtos.Orders.Order
             {
                 Symbol = symbol,
                 TriggerPrice = triggerPrice,
@@ -578,11 +561,14 @@ namespace ArcTriggerUI
         }
         #endregion
 
+        #region Order Temizleme || Order Clearing
         private void OnClearOrdersClicked(object sender, EventArgs e)
         {
             OrdersContainer.Children.Clear();
         }
 
+        #endregion
+        #region Dark Mode || Karanlık Mod
         private bool imageDarkandLight = false;
         private void OnToggleThemeClicked(object sender, EventArgs e)
         {
@@ -613,14 +599,15 @@ namespace ArcTriggerUI
             }
 
         }
+        #endregion
 
-        #region Api Request || Api İstek 4
+        #region Api Request || Api İstek 
         private async void OnGetTickleClicked(object sender, EventArgs e)
         {
 
             try
             {
-                string url = "http://192.168.1.112:8000/api/tickle";
+                string url = Configs.BaseUrl+"/tickle";
                 string result = await _apiService.GetAsync(url);
                 await DisplayAlert("Auto Call", $"API Response: {result}", "OK");
             }
@@ -635,7 +622,7 @@ namespace ArcTriggerUI
         {
             try
             {
-                string url = "http://192.168.1.112:8000/api/status";
+                string url = Configs.BaseUrl+"/status";
                 string result = await _apiService.GetAsync(url);
                 await DisplayAlert("Auto Call", $"API Response: {result}", "OK");
 
@@ -651,7 +638,7 @@ namespace ArcTriggerUI
         {
             try
             {
-                string url = "http://192.168.1.112:8000/api/getSymbol";
+                string url = Configs.BaseUrl +"/getSymbol";
 
                 var request = new ResultSymbols
                 {
@@ -706,7 +693,7 @@ namespace ArcTriggerUI
         //    }
         //}
 
-        private async void OnDeleteSymbolClicked(object sender, EventArgs e)
+        private async void OnDeleteOrderClicked(object sender, EventArgs e)
         {
             int symbolId = 265598; // veya kullanıcıdan alabilirsiniz
 
@@ -722,7 +709,7 @@ namespace ArcTriggerUI
 
             try
             {
-                string url = "http://192.168.1.112:8000/api/orders/";
+                string url = Configs.BaseUrl+"/orders/";
                 await _apiService.DeleteAsync(url, symbolId);
 
                 await DisplayAlert("Success", $"Symbol '{symbolId}' deleted successfully!", "OK");
@@ -818,8 +805,85 @@ namespace ArcTriggerUI
             }
         }
 
+        private async void LoadOrders(object sender, EventArgs e)
+        {
+            try
+            {
+                string url = Configs.BaseUrl+"/orders";
+
+                // Raw JSON olarak çekiyoruz
+                string json = await _apiService.GetAsync(url);
+
+                // JSON'u dinamik olarak parse ediyoruz (tip hatası olmayacak)
+                var orders = System.Text.Json.JsonSerializer.Deserialize<List<JsonElement>>(json);
+
+                foreach (var order in orders)
+                {
+                    string ticker = order.GetProperty("ticker").GetString();
+                    string companyName = order.GetProperty("companyName").GetString();
+                    string side = order.GetProperty("side").GetString();
+                    string status = order.GetProperty("status").GetString();
+                    string price = order.GetProperty("price").GetRawText(); // number olabilir
+                    string totalSize = order.GetProperty("totalSize").GetRawText(); // number olabilir
+
+                    string message = $"Ticker: {ticker}\n" +
+                                     $"Company: {companyName}\n" +
+                                     $"Side: {side}\n" +
+                                     $"Price: {price}\n" +
+                                     $"Status: {status}\n" +
+                                     $"Quantity: {totalSize}";
+                    
+                   
+                }
+                string alertMessage = "Başarılı";
+                await DisplayAlert("Order Info", alertMessage, "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+        private async void OnPostOrderClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                var request = new PostOrderItem
+                {
+                    conid = 46639520,
+                    orderType = "LMT",
+                    price = 1700,
+                    quantity = 1000, // artık API kabul eder
+                    side = "BUY",
+                    tif = "DAY"
+                };
+
+                var result = await _apiService.CreateOrderAsync(request);
+
+                if (result != null)
+                {
+                    await DisplayAlert("Success",
+                        $"Order ID: {result.OrderId ?? "(null)"}\n" +
+                        $"Status: {result.OrderStatus ?? "(null)"}\n" +
+                        $"Encrypt: {result.EncryptMessage ?? "(null)"}",
+                        "OK");
+                }
+                else
+                {
+                    await DisplayAlert("Info", "No order returned from API.", "OK");
+                }
+            }
+            catch (Exception ex)
+            {
+                // API hatası veya network hatası buraya gelir
+                await DisplayAlert("Error", ex.Message, "OK");
+            }
+        }
+
+
         #endregion
 
+        #region Sağ Tık Düzenleme || Right Click Edit
         private async void OnPresetRightClick(object sender, TappedEventArgs e)
         {
             if (sender is not Button btn) return;
@@ -857,6 +921,9 @@ namespace ArcTriggerUI
             s.TargetEntry.Text = ValueForEntry(displayText, s.Mode);
         }
 
+        #endregion
+
+        #region Parse & Format Helpers || Ayrıştırma ve Biçimlendirme Yardımcıları
         static bool TryParseFlexible(string text, out decimal value)
         {
             value = 0m;
@@ -883,7 +950,7 @@ namespace ArcTriggerUI
             return true;
         }
 
-
+        #endregion
 
     }
 }

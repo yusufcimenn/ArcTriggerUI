@@ -1,5 +1,6 @@
 ﻿
 using ArcTriggerUI.Dtos.Info;
+using ArcTriggerUI.Dtos.Orders;
 using System.Threading.Tasks;
 using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
 using static ArcTriggerUI.Dtos.SecDefs.ResultSecdef;
@@ -22,7 +23,8 @@ namespace ArcTriggerUI.Interfaces
         Task<string> GetSecDefStrikeAsync(string conid, string month, string secType);
         Task<SecDefResponse> GetSecDefAsync(string conids);
         Task<List<PortfolioItem>> GetPortfolioAsync();
-
         Task<InfoResponse> GetInfoAsync(string conid);
+        Task<CreateOrderResponse?> CreateOrderAsync(PostOrderItem request);
+
     }
 }
