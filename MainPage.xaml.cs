@@ -9,6 +9,10 @@ using System.Resources;
 using System.Text.Json;
 using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
 
+// symbols text için
+using System.Collections.ObjectModel;
+using System.Threading;
+
 namespace ArcTriggerUI
 {
 
@@ -37,6 +41,14 @@ namespace ArcTriggerUI
 
         private readonly IApiService _apiService;
 
+        // symbols text için: arama sonucu listesi ve debounce/iptal için CTS
+        private readonly ObservableCollection<SymbolSearchResponse> _symbolResults = new();
+        private CancellationTokenSource? _symbolCts;
+
+        // symbols text için: sembol -> conid eşlemesi ve seçilen conid
+        private readonly Dictionary<string, long> _symbolConidMap = new(StringComparer.OrdinalIgnoreCase);
+        private long? _selectedConid = null;
+
         public MainPage(IApiService apiService)
         {
             InitializeComponent();
@@ -50,6 +62,9 @@ namespace ArcTriggerUI
                     item.Text = savedTheme == AppTheme.Dark ? "Light" : "Dark";
             }
             _apiService = apiService;
+
+            // symbols text için: CollectionView’a source bağla (XAML’daki SymbolSuggestions)
+            SymbolSuggestions.ItemsSource = _symbolResults;
         }
 
 
@@ -178,6 +193,28 @@ namespace ArcTriggerUI
         #endregion
 
         #region Buton Yardımcı Metotları || Button Helper Methods
+        private string _selectedOrderType = "Call";   // Default
+        private string _selectedOrderMode = "MKT";    // Default
+
+        // OrderType (Call/Put)
+        private void OnOrderTypeCheckedChanged(object sender, CheckedChangedEventArgs e)
+        {
+            if (e.Value) // sadece seçilen RadioButton tetiklenir
+            {
+                var radio = sender as RadioButton;
+                _selectedOrderType = radio?.Content?.ToString();
+            }
+        }
+
+        // OrderMode (MKT/LMT)
+        private void OnOrderModeCheckedChanged(object sender, CheckedChangedEventArgs e)
+        {
+            if (e.Value)
+            {
+                var radio = sender as RadioButton;
+                _selectedOrderMode = radio?.Content?.ToString();
+            }
+        }
         void ApplySectionButtons(SectionConfig s)
         {
             for (int i = 0; i < s.Slots.Length && i < s.Selected.Length; i++)
@@ -205,7 +242,7 @@ namespace ArcTriggerUI
         }
         #endregion
 
-        #region Buton Format Yardımcı Metotları || Button Format Helper Methods
+        #region Buton Format Yardımcı Metotları || Button Helper Methods
         static string NormalizeForMode(string input, SectionMode mode)
         {
             var t = input?.Trim().ToUpperInvariant() ?? "";
@@ -344,6 +381,12 @@ namespace ArcTriggerUI
                 var symbol = picker.Items[picker.SelectedIndex];
                 Console.WriteLine($"Selected symbol: {symbol}");
 
+                // symbols text için: seçilen sembolün conid’sini sözlükten set et
+                if (_symbolConidMap.TryGetValue(symbol, out var cid))
+                {
+                    _selectedConid = cid;
+                }
+
                 // Window başlığına yansıt
                 if (this.Window != null)
                     this.Window.Title = symbol;
@@ -479,7 +522,13 @@ namespace ArcTriggerUI
         #region Create Order Clicked || Sipariş Oluşturma Tıklandı
         private void OnCreateOrderClicked(object sender, EventArgs e)
         {
+            // symbols text için: conid varsa symbol yerine onu gönder
             var symbol = (StockPicker.SelectedIndex != -1) ? StockPicker.Items[StockPicker.SelectedIndex] : "";
+            if (_selectedConid.HasValue)
+            {
+                symbol = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
+            }
+
             var triggerPrice = decimal.TryParse(TriggerEntry.Text, out var t) ? t : 0;
             var orderType = CallRadioButton.IsChecked ? "Call" : "Put";
             var orderMode = MktRadioButton.IsChecked ? "MKT" : "LMT";
@@ -502,8 +551,8 @@ namespace ArcTriggerUI
                 Expiry = expiry,
                 PositionSize = position,
                 StopLoss = stopLoss,
-                ProfitTaking = profit,
-                AlphaFlag = alpha
+                ProfitTaking = profit
+                
             };
 
             Console.WriteLine("Order created: " + order.ToString());
@@ -607,7 +656,7 @@ namespace ArcTriggerUI
 
             try
             {
-                string url = Configs.BaseUrl+"/tickle";
+                string url = Configs.BaseUrl + "/tickle";
                 string result = await _apiService.GetAsync(url);
                 await DisplayAlert("Auto Call", $"API Response: {result}", "OK");
             }
@@ -622,7 +671,7 @@ namespace ArcTriggerUI
         {
             try
             {
-                string url = Configs.BaseUrl+"/status";
+                string url = Configs.BaseUrl + "/status";
                 string result = await _apiService.GetAsync(url);
                 await DisplayAlert("Auto Call", $"API Response: {result}", "OK");
 
@@ -638,7 +687,7 @@ namespace ArcTriggerUI
         {
             try
             {
-                string url = Configs.BaseUrl +"/getSymbol";
+                string url = Configs.BaseUrl + "/getSymbol";
 
                 var request = new ResultSymbols
                 {
@@ -669,17 +718,17 @@ namespace ArcTriggerUI
         //    try
         //    {
         //        string url = "http://192.168.1.112:8000/api/getSymbol";
-
+        //
         //        var request = new ResultSymbols
         //        {
         //            symbol = "AAPL",
         //            name = true,
         //            //secType = "STK"
         //        };
-
+        //
         //        // TResponse artık ResultSymbols olmalı, string değil
         //        List<ResultSymbols> result = await _apiService.PostAsync<ResultSymbols, List<ResultSymbols>>(url, request);
-
+        //
         //        var first = result.FirstOrDefault();
         //        if (first != null)
         //        {
@@ -709,7 +758,7 @@ namespace ArcTriggerUI
 
             try
             {
-                string url = Configs.BaseUrl+"/orders/";
+                string url = Configs.BaseUrl + "/orders/";
                 await _apiService.DeleteAsync(url, symbolId);
 
                 await DisplayAlert("Success", $"Symbol '{symbolId}' deleted successfully!", "OK");
@@ -809,7 +858,7 @@ namespace ArcTriggerUI
         {
             try
             {
-                string url = Configs.BaseUrl+"/orders";
+                string url = Configs.BaseUrl + "/orders";
 
                 // Raw JSON olarak çekiyoruz
                 string json = await _apiService.GetAsync(url);
@@ -832,8 +881,8 @@ namespace ArcTriggerUI
                                      $"Price: {price}\n" +
                                      $"Status: {status}\n" +
                                      $"Quantity: {totalSize}";
-                    
-                   
+
+
                 }
                 string alertMessage = "Başarılı";
                 await DisplayAlert("Order Info", alertMessage, "OK");
@@ -885,7 +934,7 @@ namespace ArcTriggerUI
             try
             {
                 int orderId = 760072067; // Örnek order ID
-                var order = await _apiService.GetAsync<OrderResponseDto>(Configs.BaseUrl+$"/orders/by-id/{orderId}");
+                var order = await _apiService.GetAsync<OrderResponseDto>(Configs.BaseUrl + $"/orders/by-id/{orderId}");
 
                 if (order == null)
                 {
@@ -984,7 +1033,175 @@ namespace ArcTriggerUI
             return true;
         }
 
+        private async void OnCreateOrdersClicked(object sender, EventArgs e)
+        {
+            var order = new Dtos.Orders.Order
+            {
+                Symbol = StockPicker.SelectedItem.ToString(),
+                TriggerPrice = int.Parse(TriggerEntry.Text),
+                OrderType = _selectedOrderType,
+                OrderMode = _selectedOrderMode,
+                Offset = decimal.Parse(OffsetEntry.Text),
+                Strike = StrikePicker.SelectedItem.ToString(),
+                Expiry = ExpPicker.SelectedItem.ToString(),
+                PositionSize = int.Parse(PositionEntry.Text),
+                StopLoss = decimal.Parse(StopLossEntry.Text),
+                ProfitTaking = decimal.Parse(ProfitEntry.Text)
+            };
+
+            try
+            {
+                string result = await _apiService.SendOrderAsync(order);
+                await DisplayAlert("API Response", result, "Tamam");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Hata", ex.Message, "Tamam");
+            }
+        }
+
         #endregion
+
+
+        // =======================
+        // symbols text için: Arama Entry’si & Öneri CollectionView handler’ları
+        // =======================
+
+        // XAML: TextChanged="OnSymbolSearchTextChanged"
+        private async void OnSymbolSearchTextChanged(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                var query = e.NewTextValue?.Trim() ?? string.Empty;
+
+                // boşsa listeyi gizle
+                if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
+                {
+                    _symbolCts?.Cancel();
+                    _symbolResults.Clear();
+                    SymbolSuggestions.IsVisible = false;
+                    return;
+                }
+
+                // debounce + önceki isteği iptal
+                _symbolCts?.Cancel();
+                _symbolCts = new CancellationTokenSource();
+                var token = _symbolCts.Token;
+
+                // küçük bir gecikme (debounce)
+                await Task.Delay(250, token);
+
+                await FetchAndBindSymbolSuggestionsAsync(query, token);
+            }
+            catch (TaskCanceledException)
+            {
+                // yoksay
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Symbol search error: " + ex.Message);
+                _symbolResults.Clear();
+                SymbolSuggestions.IsVisible = false;
+            }
+        }
+
+        // XAML: SelectionChanged="OnSymbolSuggestionSelected"
+        private void OnSymbolSuggestionSelected(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (e.CurrentSelection?.FirstOrDefault() is SymbolSearchResponse sel)
+                {
+                    // Entry’ye seçilen sembolü yaz
+                    SymbolSearchEntry.Text = sel.symbol;
+
+                    // StockPicker’ı seçime göre güncelle
+                    StockPicker.Items.Clear();
+                    StockPicker.Items.Add(sel.symbol);
+                    StockPicker.SelectedIndex = 0;
+
+                    // symbols text için: conid seç
+                    if (_symbolConidMap.TryGetValue(sel.symbol, out var cid))
+                        _selectedConid = cid;
+
+                    // öneri listesini gizle
+                    SymbolSuggestions.IsVisible = false;
+                    SymbolSuggestions.SelectedItem = null;
+
+                    // DisplayLabel’a da yansısın (OnSymbolChanged zaten tetiklenecek)
+                }
+            }
+            catch { /* yoksay */ }
+        }
+
+        // symbols text için: API’den öneri çekme + conid yakalama
+        private async Task FetchAndBindSymbolSuggestionsAsync(string query, CancellationToken token)
+        {
+            // API: /getSymbol -> request body: ResultSymbols { symbol, name(bool), secType }
+            var url = Configs.BaseUrl + "/getSymbol";
+            var request = new ResultSymbols
+            {
+                symbol = query,
+                name = true,     // sunucudan isim bilgisini döndür (DTO bool, response’da string olabilir)
+                secType = "STK"
+            };
+
+            // Response şeması garanti değil (DTO’da name bool), bu yüzden JsonElement ile esnek parse
+            List<JsonElement> rawList = await _apiService.PostAsync<ResultSymbols, List<JsonElement>>(url, request);
+
+            // token iptal edildiyse dön
+            if (token.IsCancellationRequested) return;
+
+            var list = new List<SymbolSearchResponse>();
+
+            foreach (var item in rawList)
+            {
+                // symbol
+                string symbol = item.TryGetProperty("symbol", out var sEl) ? (sEl.GetString() ?? "") : "";
+
+                // name (string olabilir / olmayabilir)
+                string? displayName = null;
+                if (item.TryGetProperty("name", out var nEl))
+                {
+                    if (nEl.ValueKind == JsonValueKind.String)
+                        displayName = nEl.GetString();
+                    // bazı servisler "name": true/false döndürebilir, o zaman null bırak
+                }
+
+                // symbols text için: conid varsa al ve sözlüğe koy
+                long conidVal;
+                if (item.TryGetProperty("conid", out var cEl))
+                {
+                    switch (cEl.ValueKind)
+                    {
+                        case JsonValueKind.Number:
+                            if (cEl.TryGetInt64(out var cnum))
+                                _symbolConidMap[symbol] = cnum;
+                            break;
+                        case JsonValueKind.String:
+                            if (long.TryParse(cEl.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var cstr))
+                                _symbolConidMap[symbol] = cstr;
+                            break;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(symbol))
+                {
+                    list.Add(new SymbolSearchResponse
+                    {
+                        symbol = symbol,
+                        name = displayName
+                    });
+                }
+            }
+
+            // UI’ya bas
+            _symbolResults.Clear();
+            foreach (var it in list.Take(200)) // güvenli sınır
+                _symbolResults.Add(it);
+
+            SymbolSuggestions.IsVisible = _symbolResults.Count > 0;
+        }
 
     }
 }
