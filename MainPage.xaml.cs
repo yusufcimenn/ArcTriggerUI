@@ -193,6 +193,28 @@ namespace ArcTriggerUI
         #endregion
 
         #region Buton Yardımcı Metotları || Button Helper Methods
+        private string _selectedOrderType = "Call";   // Default
+        private string _selectedOrderMode = "MKT";    // Default
+
+        // OrderType (Call/Put)
+        private void OnOrderTypeCheckedChanged(object sender, CheckedChangedEventArgs e)
+        {
+            if (e.Value) // sadece seçilen RadioButton tetiklenir
+            {
+                var radio = sender as RadioButton;
+                _selectedOrderType = radio?.Content?.ToString();
+            }
+        }
+
+        // OrderMode (MKT/LMT)
+        private void OnOrderModeCheckedChanged(object sender, CheckedChangedEventArgs e)
+        {
+            if (e.Value)
+            {
+                var radio = sender as RadioButton;
+                _selectedOrderMode = radio?.Content?.ToString();
+            }
+        }
         void ApplySectionButtons(SectionConfig s)
         {
             for (int i = 0; i < s.Slots.Length && i < s.Selected.Length; i++)
@@ -529,8 +551,8 @@ namespace ArcTriggerUI
                 Expiry = expiry,
                 PositionSize = position,
                 StopLoss = stopLoss,
-                ProfitTaking = profit,
-                AlphaFlag = alpha
+                ProfitTaking = profit
+                
             };
 
             Console.WriteLine("Order created: " + order.ToString());
@@ -1009,6 +1031,33 @@ namespace ArcTriggerUI
             slotIndex = Array.IndexOf(s.Slots, btn);
             if (slotIndex < 0) slotIndex = 0;
             return true;
+        }
+
+        private async void OnCreateOrdersClicked(object sender, EventArgs e)
+        {
+            var order = new Dtos.Orders.Order
+            {
+                Symbol = StockPicker.SelectedItem.ToString(),
+                TriggerPrice = int.Parse(TriggerEntry.Text),
+                OrderType = _selectedOrderType,
+                OrderMode = _selectedOrderMode,
+                Offset = decimal.Parse(OffsetEntry.Text),
+                Strike = StrikePicker.SelectedItem.ToString(),
+                Expiry = ExpPicker.SelectedItem.ToString(),
+                PositionSize = int.Parse(PositionEntry.Text),
+                StopLoss = decimal.Parse(StopLossEntry.Text),
+                ProfitTaking = decimal.Parse(ProfitEntry.Text)
+            };
+
+            try
+            {
+                string result = await _apiService.SendOrderAsync(order);
+                await DisplayAlert("API Response", result, "Tamam");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Hata", ex.Message, "Tamam");
+            }
         }
 
         #endregion

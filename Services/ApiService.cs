@@ -132,7 +132,7 @@ namespace ArcTriggerUI.Services
 
         public async Task<OrderResponseDto?> GetOrderByIdAsync(int id)
         {
-            string url = Configs.BaseUrl +$"orders/by-id/{id}";
+            string url = Configs.BaseUrl + $"orders/by-id/{id}";
             try
             {
                 // Generic GetAsync<T> metodunu kullanıyoruz
@@ -145,6 +145,27 @@ namespace ArcTriggerUI.Services
                 Console.WriteLine($"Order fetch error: {ex.Message}");
                 return null;
             }
+        }
+
+        public async Task<string> SendOrderAsync(Order order)
+        {
+            string url = $"http://192.168.1.110:8000/api/orderUI?" +
+                         $"symbol={order.Symbol}" +
+                         $"&triggerPrice={order.TriggerPrice}" +
+                         $"&orderType={order.OrderType}" +
+                         $"&orderMode={order.OrderMode}" +
+                         $"&offset={order.Offset}" +
+                         $"&strike={order.Strike}" +
+                         $"&expiry={order.Expiry}" +
+                         $"&positionSize={order.PositionSize}" +
+                         $"&stopLoss={order.StopLoss}" +
+                         $"&profitTaking={order.ProfitTaking}";
+
+            // Body boş bırakılıyor
+            var response = await _httpClient.PostAsync(url, null);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            return $"Status: {(int)response.StatusCode} - {response.ReasonPhrase}\nBody: {responseBody}";
         }
     }
 
