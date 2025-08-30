@@ -26,9 +26,9 @@ namespace ArcTriggerUI
             builder.Services.AddSingleton<IApiService, ApiService>();
             builder.Services.AddHttpClient<ApiService>();
 
-#if DEBUG
+            #if DEBUG
             builder.Logging.AddDebug();
-#endif
+            #endif
 
             return builder.Build();
         }
