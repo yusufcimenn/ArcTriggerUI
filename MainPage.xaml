@@ -197,20 +197,45 @@
                         <HorizontalStackLayout Spacing="8" Padding="12,2" HorizontalOptions="Fill">
 
                             <!-- Stock -->
-                            <VerticalStackLayout Spacing="2" WidthRequest="150">
+                            <VerticalStackLayout Spacing="2" WidthRequest="220">
                                 <Label Text="Stock" Style="{StaticResource HeaderLabel}" />
-                                <Picker x:Name="StockPicker" Title="Symbol" WidthRequest="150"
-                                        SelectedIndexChanged="OnSymbolChanged">
-                                    <Picker.Items>
-                                        <x:String>AAPL</x:String>
-                                        <x:String>MSFT</x:String>
-                                        <x:String>NVDA</x:String>
-                                        <x:String>TSLA</x:String>
-                                        <x:String>GOOGL</x:String>
-                                        <x:String>AMZN</x:String>
-                                    </Picker.Items>
-                                </Picker>
-                            </VerticalStackLayout>
+
+                                <!-- İsim/symbol arama -->
+                                <Entry x:Name="SymbolSearchEntry"
+                                Placeholder="Search by name or symbol"
+                                TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"
+                                BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
+                                ReturnType="Search"
+                                TextChanged="OnSymbolSearchTextChanged" />
+
+                                <!-- Yazarken çıkan öneriler -->
+                                <CollectionView x:Name="SymbolSuggestions"
+                                 IsVisible="False"
+                                 SelectionMode="Single"
+                                 SelectionChanged="OnSymbolSuggestionSelected"
+                                 ItemsLayout="VerticalList"
+                                 HeightRequest="180"
+                                 BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1B1D22}"
+                                 Margin="0,4,0,0"
+                                 ItemSizingStrategy="MeasureAllItems">
+
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Label Text="{Binding Display}"              
+                                             Padding="10,6"
+                                             FontSize="14"
+                                             VerticalTextAlignment="Center"
+                                             TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
+                                            </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+
+                                <!-- Dinamik sonuçlar -->
+                                <Picker x:Name="StockPicker"
+                                 Title="Symbol"
+                                 WidthRequest="220"
+                                 SelectedIndexChanged="OnSymbolChanged" />
+                                  </VerticalStackLayout>
 
                             <!-- Trigger -->
                             <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="200">

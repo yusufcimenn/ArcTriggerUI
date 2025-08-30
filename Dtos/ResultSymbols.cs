@@ -12,4 +12,12 @@ namespace ArcTriggerUI.Dtos
         public bool name { get; set; }
         public string secType { get; set; }
     }
+    public class SymbolSearchResponse
+    {
+        public string symbol { get; set; } = "";
+        public string? name { get; set; } = null;
+        // Picker’da görünecek metin 
+        public string Display => string.IsNullOrWhiteSpace(name) ? symbol : $"{name} ({symbol})";
+    }
 }
+
