@@ -242,15 +242,19 @@
                             </VerticalStackLayout>
 
                             <!-- Type -->
+                            <!-- Type -->
                             <VerticalStackLayout Spacing="2" WidthRequest="150">
                                 <Label Text="Type" Style="{StaticResource HeaderLabel}"/>
                                 <HorizontalStackLayout Spacing="5" VerticalOptions="Center">
-                                    <RadioButton x:Name="CallRadioButton" Content="Call" IsChecked="True"
-                                                 TextColor="{DynamicResource PrimaryTextColor}"
-                                                 CheckedChanged="OnCallOptionCheckedChanged"/>
-                                    <RadioButton x:Name="PutRadioButton" Content="Put"
-                                                 TextColor="{DynamicResource PrimaryTextColor}"
-                                                 CheckedChanged="OnPutOptionCheckedChanged"/>
+                                    <RadioButton x:Name="CallRadioButton" 
+                     Content="Call" 
+                     IsChecked="True"
+                     TextColor="{DynamicResource PrimaryTextColor}"
+                     CheckedChanged="OnOrderTypeCheckedChanged"/>
+                                    <RadioButton x:Name="PutRadioButton" 
+                     Content="Put"
+                     TextColor="{DynamicResource PrimaryTextColor}"
+                     CheckedChanged="OnOrderTypeCheckedChanged"/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
 
@@ -258,10 +262,15 @@
                             <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="150">
                                 <Label Text="Order" Style="{StaticResource HeaderLabel}" />
                                 <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
-                                    <RadioButton x:Name="MktRadioButton" Content="MKT" IsChecked="True"
-                                                 TextColor="{DynamicResource PrimaryTextColor}"/>
-                                    <RadioButton x:Name="LmtRadioButton" Content="LMT"
-                                                 TextColor="{DynamicResource PrimaryTextColor}"/>
+                                    <RadioButton x:Name="MktRadioButton" 
+                     Content="MKT" 
+                     IsChecked="True"
+                     TextColor="{DynamicResource PrimaryTextColor}"
+                     CheckedChanged="OnOrderModeCheckedChanged"/>
+                                    <RadioButton x:Name="LmtRadioButton" 
+                     Content="LMT"
+                     TextColor="{DynamicResource PrimaryTextColor}"
+                     CheckedChanged="OnOrderModeCheckedChanged"/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
 
@@ -344,7 +353,7 @@
                                          Spacing="10" HorizontalOptions="End" Padding="0,0,12,0" MinimumWidthRequest="200" Margin="8,0,12,0">
                         <Button Text="Place Order"
                                 Style="{StaticResource PrimaryAction}"
-                                Clicked="OnCreateOrderClicked"/>
+                                Clicked="OnCreateOrdersClicked"/>
 
                         <Button Text="+ Add Order"
                                 Style="{StaticResource ActionOcean}"
