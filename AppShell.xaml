@@ -4,8 +4,16 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:ArcTriggerUI"
+    xmlns:pages="clr-namespace:ArcTriggerUI.Pages"
     Title="ArcTriggerUI">
 
+    <!-- Açılış sayfan -->
+    <ShellContent 
+        
+        ContentTemplate="{DataTemplate pages:LoginPageWV}"
+        Route="MyNewPage" />
+
+    <!-- Mevcut MainPage -->
     <ShellContent 
         Title="ARC TRIGGER"
         ContentTemplate="{DataTemplate local:MainPage}"

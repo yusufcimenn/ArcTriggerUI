@@ -129,6 +129,23 @@ namespace ArcTriggerUI.Services
                 PropertyNameCaseInsensitive = true
             });
         }
+
+        public async Task<OrderResponseDto?> GetOrderByIdAsync(int id)
+        {
+            string url = Configs.BaseUrl +$"orders/by-id/{id}";
+            try
+            {
+                // Generic GetAsync<T> metodunu kullanıyoruz
+                var orderResponse = await GetAsync<OrderResponseDto>(url);
+
+                return orderResponse;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Order fetch error: {ex.Message}");
+                return null;
+            }
+        }
     }
 
 }

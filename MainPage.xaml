@@ -464,7 +464,7 @@
                                 <Label Text="Actions" Style="{StaticResource HeaderLabel}" />
                                 <HorizontalStackLayout Spacing="6">
                                     <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
-                                    <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked=""/>
+                                    <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnGetOrdersClicked"/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
 

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ArcTriggerUI.Pages.LoginPageWV"
+             >
+
+    <Grid RowDefinitions="*, Auto" Padding="10">
+
+        <!-- WebView üstte tüm kalan alanı kaplasın -->
+        <WebView x:Name="MyWebView"
+                 Grid.Row="0"
+                 Source="https://192.168.1.110:5000" />
+
+        <!-- Butonlar altta sabit -->
+        <StackLayout Grid.Row="1" Orientation="Horizontal" HorizontalOptions="Center" Spacing="10">
+            <Button Text="Go ARC Trigger" />
+           
+        </StackLayout>
+
+    </Grid>
+</ContentPage>

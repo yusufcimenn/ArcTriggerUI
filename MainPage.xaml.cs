@@ -880,6 +880,40 @@ namespace ArcTriggerUI
             }
         }
 
+        private async void OnGetOrdersClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                int orderId = 760072067; // Örnek order ID
+                var order = await _apiService.GetAsync<OrderResponseDto>(Configs.BaseUrl+$"/orders/by-id/{orderId}");
+
+                if (order == null)
+                {
+                    await DisplayAlert("Hata", "Servisten veri gelmedi veya hata oluştu.", "Tamam");
+                    return;
+                }
+
+                if (!order.Bulunan)
+                {
+                    await DisplayAlert("Bilgi", "Order bulunamadı.", "Tamam");
+                    return;
+                }
+
+                // Order bulundu, DisplayAlert ile göster
+                string message =
+                    $"Order ID: {order.Order?.Id}\n" +
+                    $"Ürün: {order.Order?.ProductName}\n" +
+                    $"Adet: {order.Order?.Quantity}\n" +
+                    $"Fiyat: {order.Order?.Price}\n" +
+                    $"Durum: {order.Order?.Status}";
+
+                await DisplayAlert("Order Detayları", message, "Tamam");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Hata", $"Order çekilirken bir hata oluştu: {ex.Message}", "Tamam");
+            }
+        }
 
         #endregion
 
