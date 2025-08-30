@@ -190,7 +190,7 @@
                    Padding="12">
 
 
-                <Grid RowDefinitions="Auto,Auto,Auto , *" ColumnDefinitions="*,Auto">
+                <Grid RowDefinitions="Auto,Auto,Auto , *" ColumnDefinitions="*,Auto" ColumnSpacing="16">
 
                     <!-- TOP ROW: inputs -->
                     <Grid Grid.Row="0" Grid.Column="0">
@@ -213,12 +213,12 @@
                             </VerticalStackLayout>
 
                             <!-- Trigger -->
-                            <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="170">
+                            <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="200">
                                 <Label Text="Trigger Level" Style="{StaticResource HeaderLabel}" />
-                                <Grid ColumnSpacing="6" Margin="0" Padding="0">
+                                <Grid ColumnSpacing="6" Padding="0,0,4,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="110" />
-                                        <ColumnDefinition Width="28" />
+                                        <ColumnDefinition Width="50" />
                                     </Grid.ColumnDefinitions>
 
                                     <Entry x:Name="TriggerEntry"
@@ -341,7 +341,7 @@
 
                     <!-- RIGHT COLUMN -->
                     <VerticalStackLayout Grid.Row="0" Grid.Column="1" Grid.RowSpan="2"
-                                         Spacing="10" HorizontalOptions="End" Padding="0,0,12,0">
+                                         Spacing="10" HorizontalOptions="End" Padding="0,0,12,0" MinimumWidthRequest="200" Margin="8,0,12,0">
                         <Button Text="Place Order"
                                 Style="{StaticResource PrimaryAction}"
                                 Clicked="OnCreateOrderClicked"/>
