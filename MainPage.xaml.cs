@@ -12,6 +12,9 @@ using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
 // symbols text için
 using System.Collections.ObjectModel;
 using System.Threading;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ArcTriggerUI
 {
@@ -48,6 +51,15 @@ namespace ArcTriggerUI
         // symbols text için: sembol -> conid eşlemesi ve seçilen conid
         private readonly Dictionary<string, long> _symbolConidMap = new(StringComparer.OrdinalIgnoreCase);
         private long? _selectedConid = null;
+
+        // symbols text için: öneri öğesi (conid eklendi)
+        public class SymbolSearchResponse
+        {
+            public string symbol { get; set; } = "";
+            public string? name { get; set; }
+            public long? conid { get; set; }      // << eklendi
+            public string Display => string.IsNullOrEmpty(name) ? symbol : $"{symbol} — {name}";
+        }
 
         public MainPage(IApiService apiService)
         {
@@ -386,6 +398,10 @@ namespace ArcTriggerUI
                 {
                     _selectedConid = cid;
                 }
+                else
+                {
+                    _selectedConid = null; // << yoksa stale conid kalmasın
+                }
 
                 // Window başlığına yansıt
                 if (this.Window != null)
@@ -519,51 +535,7 @@ namespace ArcTriggerUI
         }
         #endregion
 
-        #region Create Order Clicked || Sipariş Oluşturma Tıklandı
-        private void OnCreateOrderClicked(object sender, EventArgs e)
-        {
-            // symbols text için: conid varsa symbol yerine onu gönder
-            var symbol = (StockPicker.SelectedIndex != -1) ? StockPicker.Items[StockPicker.SelectedIndex] : "";
-            if (_selectedConid.HasValue)
-            {
-                symbol = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
-            }
 
-            var triggerPrice = decimal.TryParse(TriggerEntry.Text, out var t) ? t : 0;
-            var orderType = CallRadioButton.IsChecked ? "Call" : "Put";
-            var orderMode = MktRadioButton.IsChecked ? "MKT" : "LMT";
-            var offset = decimal.TryParse(OffsetEntry.Text, out var o) ? o : 0;
-            var strike = (StrikePicker.SelectedIndex != -1) ? StrikePicker.Items[StrikePicker.SelectedIndex] : "";
-            var expiry = (ExpPicker.SelectedIndex != -1) ? ExpPicker.Items[ExpPicker.SelectedIndex] : "";
-            var position = decimal.TryParse(PositionEntry.Text, out var p) ? p : 0;
-            var stopLoss = decimal.TryParse(StopLossEntry.Text, out var s) ? s : 0;
-            var profit = decimal.TryParse(ProfitEntry.Text, out var pr) ? pr : 0;
-            var alpha = AlphaCheck.IsChecked;
-
-            var order = new Dtos.Orders.Order
-            {
-                Symbol = symbol,
-                TriggerPrice = triggerPrice,
-                OrderType = orderType,
-                OrderMode = orderMode,
-                Offset = offset,
-                Strike = strike,
-                Expiry = expiry,
-                PositionSize = position,
-                StopLoss = stopLoss,
-                ProfitTaking = profit
-                
-            };
-
-            Console.WriteLine("Order created: " + order.ToString());
-
-            // Ekrana yazdır
-            if (this.FindByName<Label>("DisplayLabel") is Label label)
-            {
-                label.Text = order.ToString();
-            }
-        }
-        #endregion
 
         #region Profit Text Changed || Kar Metin Değişikliği
         private void OnProfitPresetClicked(object sender, EventArgs e)
@@ -1035,9 +1007,16 @@ namespace ArcTriggerUI
 
         private async void OnCreateOrdersClicked(object sender, EventArgs e)
         {
+            // ÜSTTEKİYLE AYNI MANTIK: conid varsa onu kullan, yoksa seçili sembolü
+            var symbol = "";
+            if (_selectedConid.HasValue)
+                symbol = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
+            else if (StockPicker?.SelectedItem != null)
+                symbol = StockPicker.SelectedItem.ToString();
+
             var order = new Dtos.Orders.Order
             {
-                Symbol = StockPicker.SelectedItem.ToString(),
+                Symbol = symbol, // << sadece burası değişti
                 TriggerPrice = int.Parse(TriggerEntry.Text),
                 OrderType = _selectedOrderType,
                 OrderMode = _selectedOrderMode,
@@ -1120,9 +1099,13 @@ namespace ArcTriggerUI
                     StockPicker.Items.Add(sel.symbol);
                     StockPicker.SelectedIndex = 0;
 
-                    // symbols text için: conid seç
-                    if (_symbolConidMap.TryGetValue(sel.symbol, out var cid))
+                    // conid’i doğrudan seçilen objeden al; yoksa sözlükten dene
+                    if (sel.conid.HasValue)
+                        _selectedConid = sel.conid.Value;
+                    else if (_symbolConidMap.TryGetValue(sel.symbol, out var cid))
                         _selectedConid = cid;
+                    else
+                        _selectedConid = null;
 
                     // öneri listesini gizle
                     SymbolSuggestions.IsVisible = false;
@@ -1168,29 +1151,33 @@ namespace ArcTriggerUI
                     // bazı servisler "name": true/false döndürebilir, o zaman null bırak
                 }
 
-                // symbols text için: conid varsa al ve sözlüğe koy
-                long conidVal;
+                // conid (number veya string gelebilir)
+                long? conid = null;
                 if (item.TryGetProperty("conid", out var cEl))
                 {
                     switch (cEl.ValueKind)
                     {
                         case JsonValueKind.Number:
                             if (cEl.TryGetInt64(out var cnum))
-                                _symbolConidMap[symbol] = cnum;
+                                conid = cnum;
                             break;
                         case JsonValueKind.String:
                             if (long.TryParse(cEl.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var cstr))
-                                _symbolConidMap[symbol] = cstr;
+                                conid = cstr;
                             break;
                     }
                 }
 
                 if (!string.IsNullOrWhiteSpace(symbol))
                 {
+                    if (conid.HasValue)
+                        _symbolConidMap[symbol] = conid.Value; // mevcut davranış dursun
+
                     list.Add(new SymbolSearchResponse
                     {
                         symbol = symbol,
-                        name = displayName
+                        name = displayName,
+                        conid = conid // << objeye de koyduk
                     });
                 }
             }

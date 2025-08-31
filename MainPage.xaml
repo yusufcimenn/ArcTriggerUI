@@ -374,7 +374,7 @@
                     </Grid>
 
                     <!-- RIGHT COLUMN -->
-                    <VerticalStackLayout Grid.Row="0" Grid.Column="1" Grid.RowSpan="2"
+                    <VerticalStackLayout Grid.Row="0" Grid.Column="1" Grid.RowSpan="1"
                                          Spacing="10" HorizontalOptions="End" Padding="0,0,12,0" MinimumWidthRequest="200" Margin="8,0,12,0">
                         <Button Text="Place Order"
                                 Style="{StaticResource PrimaryAction}"

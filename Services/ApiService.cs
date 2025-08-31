@@ -149,7 +149,8 @@ namespace ArcTriggerUI.Services
 
         public async Task<string> SendOrderAsync(Order order)
         {
-            string url = $"http://192.168.1.110:8000/api/orderUI?" +
+            string baseUrl = Configs.BaseUrl.TrimEnd('/');
+            string url = $"{baseUrl}/orderUI?" +
                          $"symbol={order.Symbol}" +
                          $"&triggerPrice={order.TriggerPrice}" +
                          $"&orderType={order.OrderType}" +

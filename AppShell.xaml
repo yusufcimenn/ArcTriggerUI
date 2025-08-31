@@ -8,15 +8,17 @@
     Title="ArcTriggerUI">
 
     <!-- Açılış sayfan: MainPage -->
-    <ShellContent 
-        Title="ARC TRIGGER"
-        ContentTemplate="{DataTemplate local:MainPage}"
-        Route="MainPage" />
+    
 
     <!-- Diğer sayfalar -->
     <ShellContent 
         Title="Login Page"
         ContentTemplate="{DataTemplate pages:LoginPageWV}"
         Route="MyNewPage" />
+
+    <ShellContent 
+    Title="ARC TRIGGER"
+    ContentTemplate="{DataTemplate local:MainPage}"
+    Route="MainPage" />
 
 </Shell>

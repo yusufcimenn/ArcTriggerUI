@@ -16,6 +16,7 @@ namespace ArcTriggerUI.Dtos
     {
         public string symbol { get; set; } = "";
         public string? name { get; set; } = null;
+        public long? conid { get; set; }   // << eklendi
         // Picker’da görünecek metin 
         public string Display => string.IsNullOrWhiteSpace(name) ? symbol : $"{name} ({symbol})";
     }
