@@ -240,15 +240,15 @@
                             <!-- Market Price -->
                             <VerticalStackLayout Spacing="0" Padding="0,0,6,0" WidthRequest="100">
                                 <Label Text="Market Price:"
-           Style="{StaticResource HeaderLabel}"
-           HorizontalTextAlignment="Start"
-           HorizontalOptions="Start"/>
-                                <Label x:Name="MarketPriceLabel"
-           Text="—"
-           FontSize="14"
-           VerticalTextAlignment="Center"
-           HorizontalTextAlignment="Start"
-           TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
+                                       Style="{StaticResource HeaderLabel}"
+                                       HorizontalTextAlignment="Start"
+                                       HorizontalOptions="Start"/>
+                                                            <Label x:Name="MarketPriceLabel"
+                                       Text="—"
+                                       FontSize="14"
+                                       VerticalTextAlignment="Center"
+                                       HorizontalTextAlignment="Start"
+                                       TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
                             </VerticalStackLayout>
 
                             <!-- Trigger -->
