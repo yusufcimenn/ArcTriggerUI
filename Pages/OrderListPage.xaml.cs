@@ -11,6 +11,6 @@ public partial class OrderListPage : ContentPage
 
     private void OnAddOrderClicked(object sender, EventArgs e)
     {
-        OrdersStack.Children.Add(new OrderFormView());
+        
     }
 }

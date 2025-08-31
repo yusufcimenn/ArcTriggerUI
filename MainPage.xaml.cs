@@ -157,6 +157,16 @@ namespace ArcTriggerUI
                 Slots = new[] { BtnOff1, BtnOff2 },
                 TargetEntry = OffsetEntry
             };
+            sections["strike"] = new SectionConfig
+            {
+                Id = "strike",
+                Mode = SectionMode.Decimal,
+                Catalog = new() { "10", "20", "30", "40", "50", "60", "100", "150" },
+                Selected = new[] { "40", "80", "150" },   // default 3 slot
+                PrefKey = "hot.off.v1",
+                Slots = new[] { BtnStrike1, BtnStrike2 },
+                TargetEntry = StrikeEntry
+            };
 
 
             foreach (var s in sections.Values)
@@ -1031,7 +1041,7 @@ namespace ArcTriggerUI
                 OrderType = _selectedOrderType,
                 OrderMode = _selectedOrderMode,
                 Offset = decimal.Parse(OffsetEntry.Text),
-                Strike = StrikePicker.SelectedItem.ToString(),
+                Strike = StrikeEntry.Text.ToString(),
                 Expiry = ExpPicker.SelectedItem.ToString(),
                 PositionSize = int.Parse(PositionEntry.Text),
                 StopLoss = decimal.Parse(StopLossEntry.Text),
