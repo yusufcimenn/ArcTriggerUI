@@ -95,6 +95,12 @@ namespace ArcTriggerUI.Services
                 await DisconnectAsync();
             }
         }
+
+        public async ValueTask DisposeAsync()
+        {
+            await DisconnectAsync();
+            GC.SuppressFinalize(this);
+        }
     }
 
 }

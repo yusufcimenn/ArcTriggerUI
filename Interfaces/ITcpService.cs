@@ -5,7 +5,7 @@ using System.Text;
 
 namespace ArcTriggerUI.Interfaces
 {
-    public interface ITcpSocketService
+    public interface ITcpSocketService : IAsyncDisposable
     {
         bool IsConnected { get; }
 
