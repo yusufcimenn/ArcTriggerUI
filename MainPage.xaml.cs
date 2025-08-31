@@ -52,13 +52,21 @@ namespace ArcTriggerUI
         private readonly Dictionary<string, long> _symbolConidMap = new(StringComparer.OrdinalIgnoreCase);
         private long? _selectedConid = null;
 
+        // marketprice için: fiyat isteklerini yönetmek için CTS
+        private CancellationTokenSource? _priceCts; // marketprice için
+
         // symbols text için: öneri öğesi (conid eklendi)
         public class SymbolSearchResponse
         {
             public string symbol { get; set; } = "";
             public string? name { get; set; }
             public long? conid { get; set; }      // << eklendi
-            public string Display => string.IsNullOrEmpty(name) ? symbol : $"{symbol} — {name}";
+            public string? companyHeader { get; set; } // companyheader için
+
+            // companyheader için: companyHeader varsa önce onu göster, yoksa name, yoksa symbol
+            public string Display =>
+                !string.IsNullOrWhiteSpace(companyHeader) ? $"{symbol} — {companyHeader}" :
+                string.IsNullOrWhiteSpace(name) ? symbol : $"{symbol} — {name}";
         }
 
         public MainPage(IApiService apiService)
@@ -435,6 +443,9 @@ namespace ArcTriggerUI
 
                     label.Text = string.Join(", ", lines);
                 }
+
+                // marketprice için: sembol değişince fiyatı güncelle
+                _ = UpdateMarketPriceAsync(); // marketprice için
             }
         }
         #endregion
@@ -616,7 +627,6 @@ namespace ArcTriggerUI
                     : AppTheme.Dark;
                 btnDarkMode.IconImageSource = "theme_toggle.png";
                 btnDarkMode.Text = "Dark";
-                imageDarkandLight = false;
             }
 
         }
@@ -1111,13 +1121,16 @@ namespace ArcTriggerUI
                     SymbolSuggestions.IsVisible = false;
                     SymbolSuggestions.SelectedItem = null;
 
+                    // marketprice için: seçimden sonra fiyatı güncelle
+                    _ = UpdateMarketPriceAsync(); // marketprice için
+
                     // DisplayLabel’a da yansısın (OnSymbolChanged zaten tetiklenecek)
                 }
             }
             catch { /* yoksay */ }
         }
 
-        // symbols text için: API’den öneri çekme + conid yakalama
+        // symbols text için: API’den öneri çekme + conid + companyHeader yakalama
         private async Task FetchAndBindSymbolSuggestionsAsync(string query, CancellationToken token)
         {
             // API: /getSymbol -> request body: ResultSymbols { symbol, name(bool), secType }
@@ -1151,6 +1164,13 @@ namespace ArcTriggerUI
                     // bazı servisler "name": true/false döndürebilir, o zaman null bırak
                 }
 
+                // companyheader için: companyHeader yakala
+                string? header = null;
+                if (item.TryGetProperty("companyHeader", out var hEl) && hEl.ValueKind == JsonValueKind.String)
+                {
+                    header = hEl.GetString();
+                }
+
                 // conid (number veya string gelebilir)
                 long? conid = null;
                 if (item.TryGetProperty("conid", out var cEl))
@@ -1177,7 +1197,8 @@ namespace ArcTriggerUI
                     {
                         symbol = symbol,
                         name = displayName,
-                        conid = conid // << objeye de koyduk
+                        conid = conid,
+                        companyHeader = header // companyheader için
                     });
                 }
             }
@@ -1190,5 +1211,134 @@ namespace ArcTriggerUI
             SymbolSuggestions.IsVisible = _symbolResults.Count > 0;
         }
 
+        // marketprice için: seçili sembol/conid’e göre fiyatı çek ve UI’a yaz
+        private async Task UpdateMarketPriceAsync() // marketprice için
+        {
+            try
+            {
+                // Öncelik: conid varsa onu kullan, yoksa sembol string’i kullan
+                string? symbolParam = null;
+                if (_selectedConid.HasValue)
+                {
+                    symbolParam = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
+                }
+                else
+                {
+                    if (StockPicker?.SelectedIndex >= 0 && StockPicker.SelectedIndex < StockPicker.Items.Count)
+                        symbolParam = StockPicker.Items[StockPicker.SelectedIndex];
+                    else
+                        symbolParam = SymbolSearchEntry?.Text;
+                }
+
+                if (string.IsNullOrWhiteSpace(symbolParam))
+                {
+                    MarketPriceLabel.Text = "—";
+                    return;
+                }
+
+                // /api/snapshot?symbol={conid or symbol}
+                var url = Configs.BaseUrl.TrimEnd('/') + "/snapshot?symbol=" + Uri.EscapeDataString(symbolParam);
+
+                // debounce/iptal
+                _priceCts?.Cancel();
+                _priceCts = new CancellationTokenSource();
+                var token = _priceCts.Token;
+
+                var response = await _apiService.GetAsync(url);
+                if (token.IsCancellationRequested) return;
+
+                // Backend bazen düz string (ör: "123.45") dönebilir, bazen JSON olabilir.
+                // 1) Düz string sayı ise direkt yaz
+                var raw = (response ?? "").Trim();
+                if (decimal.TryParse(raw.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var direct))
+                {
+                    MarketPriceLabel.Text = direct.ToString("0.00", CultureInfo.InvariantCulture);
+                    return;
+                }
+
+                // 2) JSON parse etmeyi dene ve yaygın anahtarları ara
+                if (raw.StartsWith("{") || raw.StartsWith("["))
+                {
+                    using var doc = JsonDocument.Parse(raw);
+                    var root = doc.RootElement;
+
+                    string[] priceKeys = { "marketPrice", "last", "lastPrice", "mark", "mid", "close", "price", "p" };
+
+                    if (TryExtractDecimal(root, priceKeys, out var price) ||
+                        (root.TryGetProperty("data", out var dataObj) && TryExtractDecimal(dataObj, priceKeys, out price)) ||
+                        (root.TryGetProperty("quote", out var quoteObj) && TryExtractDecimal(quoteObj, priceKeys, out price)) ||
+                        (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0 && TryExtractDecimal(root[0], priceKeys, out price)))
+                    {
+                        MarketPriceLabel.Text = price.ToString("0.00", CultureInfo.InvariantCulture);
+                        return;
+                    }
+
+                    // Fiyat yoksa bid/ask'tan mid hesaplamayı dene
+                    decimal? bid = TryExtractOneOf(root, "bid", "bestBid", "b");
+                    decimal? ask = TryExtractOneOf(root, "ask", "bestAsk", "a");
+
+                    if (!bid.HasValue && root.TryGetProperty("data", out var d1))
+                    {
+                        bid ??= TryExtractOneOf(d1, "bid", "bestBid", "b");
+                        ask ??= TryExtractOneOf(d1, "ask", "bestAsk", "a");
+                    }
+                    if (!bid.HasValue && root.TryGetProperty("quote", out var q1))
+                    {
+                        bid ??= TryExtractOneOf(q1, "bid", "bestBid", "b");
+                        ask ??= TryExtractOneOf(q1, "ask", "bestAsk", "a");
+                    }
+                    if (!bid.HasValue && root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+                    {
+                        bid ??= TryExtractOneOf(root[0], "bid", "bestBid", "b");
+                        ask ??= TryExtractOneOf(root[0], "ask", "bestAsk", "a");
+                    }
+
+                    if (bid.HasValue && ask.HasValue)
+                    {
+                        var mid = (bid.Value + ask.Value) / 2m;
+                        MarketPriceLabel.Text = mid.ToString("0.00", CultureInfo.InvariantCulture) + " (mid)";
+                        return;
+                    }
+                }
+
+                // Hiçbiri olmadıysa
+                MarketPriceLabel.Text = "N/A (snapshot price yok)";
+            }
+            catch
+            {
+                MarketPriceLabel.Text = "N/A";
+            }
+
+            // ---- helpers (marketprice için) ----
+            static bool TryExtractDecimal(JsonElement el, string[] names, out decimal val)
+            {
+                foreach (var n in names)
+                {
+                    if (el.TryGetProperty(n, out var p))
+                    {
+                        if (p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out val))
+                            return true;
+                        if (p.ValueKind == JsonValueKind.String &&
+                            decimal.TryParse((p.GetString() ?? "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out val))
+                            return true;
+                    }
+                }
+                val = 0m; return false;
+            }
+            static decimal? TryExtractOneOf(JsonElement el, params string[] names)
+            {
+                foreach (var n in names)
+                {
+                    if (el.TryGetProperty(n, out var p))
+                    {
+                        if (p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var d)) return d;
+                        if (p.ValueKind == JsonValueKind.String &&
+                            decimal.TryParse((p.GetString() ?? "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var ds))
+                            return ds;
+                    }
+                }
+                return null;
+            }
+        }
     }
 }

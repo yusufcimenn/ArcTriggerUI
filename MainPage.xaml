@@ -237,6 +237,20 @@
                                  SelectedIndexChanged="OnSymbolChanged" />
                                   </VerticalStackLayout>
 
+                            <!-- Market Price -->
+                            <VerticalStackLayout Spacing="0" Padding="0,0,6,0" WidthRequest="100">
+                                <Label Text="Market Price:"
+           Style="{StaticResource HeaderLabel}"
+           HorizontalTextAlignment="Start"
+           HorizontalOptions="Start"/>
+                                <Label x:Name="MarketPriceLabel"
+           Text="—"
+           FontSize="14"
+           VerticalTextAlignment="Center"
+           HorizontalTextAlignment="Start"
+           TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
+                            </VerticalStackLayout>
+
                             <!-- Trigger -->
                             <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="200">
                                 <Label Text="Trigger Level" Style="{StaticResource HeaderLabel}" />
@@ -266,7 +280,6 @@
                                 </Grid>
                             </VerticalStackLayout>
 
-                            <!-- Type -->
                             <!-- Type -->
                             <VerticalStackLayout Spacing="2" WidthRequest="150">
                                 <Label Text="Type" Style="{StaticResource HeaderLabel}"/>
