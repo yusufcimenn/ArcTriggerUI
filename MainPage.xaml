@@ -176,8 +176,8 @@
 
     </ContentPage.Resources>
 
-    <ScrollView Orientation="Both">
-        <Grid Padding="8" HorizontalOptions="Center" VerticalOptions="Center">
+    <ScrollView x:Name="Scrolls" Orientation="Both">
+        <Grid x:Name="ContentGrid" Padding="8" HorizontalOptions="Center" VerticalOptions="Center">
             <FlexLayout>
                 
            

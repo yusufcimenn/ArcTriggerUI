@@ -24,6 +24,9 @@ namespace ArcTriggerUI
     public partial class MainPage : ContentPage
 
     {
+        double xOffset = 0;
+        double yOffset = 0;
+
         #region Section Config || Buton Bölümleri Ayarları
         class SectionConfig
         {
@@ -114,6 +117,23 @@ namespace ArcTriggerUI
             _apiService = apiService;
 
             SymbolSuggestions.ItemsSource = _symbolResults;
+            var panGesture = new PanGestureRecognizer();
+            panGesture.PanUpdated += (s, e) =>
+            {
+                if (e.StatusType == GestureStatus.Running)
+                {
+                    // ScrollView’u sürükleme
+                    Scrolls.ScrollToAsync(xOffset - e.TotalX, yOffset - e.TotalY, false);
+                }
+                else if (e.StatusType == GestureStatus.Completed)
+                {
+                    // Son konumu kaydet
+                    xOffset = Scrolls.ScrollX;
+                    yOffset = Scrolls.ScrollY;
+                }
+            };
+
+            ContentGrid.GestureRecognizers.Add(panGesture);
         }
 
 
