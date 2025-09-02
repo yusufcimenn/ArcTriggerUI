@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArcTriggerUI.Pages.HistoryPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="History"
+    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#0C0C0F}">
+
+    <Grid Padding="12">
+        <RefreshView x:Name="RefreshHost" IsRefreshing="{Binding IsBusy}" Command="{Binding RefreshCommand}">
+            <CollectionView ItemsSource="{Binding Orders}"
+                            ItemSizingStrategy="MeasureAllItems"
+                            SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Padding="24" Spacing="6" HorizontalOptions="Center" VerticalOptions="Center">
+                        <Label Text="No orders found" Opacity="0.7"/>
+                        <Button Text="Reload" Clicked="OnReloadClicked"/>
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame HasShadow="False" Padding="12" Margin="0,6"
+                               BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
+                               BorderColor="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}"
+                               CornerRadius="10">
+                            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+                                <!-- Üst satır -->
+                                <Label Grid.Row="0" Grid.Column="0"
+                                       Text="{Binding Ticker}"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
+                                <Label Grid.Row="0" Grid.Column="1"
+                                       Text="{Binding Status}"
+                                       HorizontalTextAlignment="End"
+                                       TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
+
+                                <!-- Alt satır -->
+                                <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="16" Margin="0,4,0,0">
+                                    <Label Text="{Binding CompanyName}" Opacity="0.8"
+                                           TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
+                                    <Label Text="{Binding Side}" />
+                                    <Label Text="{Binding QuantityText}" />
+                                    <Label Text="{Binding PriceText}" />
+                                </HorizontalStackLayout>
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+
+        <!-- Sağ üstte manual refresh -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <HorizontalStackLayout Grid.Row="0" HorizontalOptions="End" Spacing="8">
+                <Button Text="Refresh" Clicked="OnReloadClicked" />
+            </HorizontalStackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>
