@@ -7,7 +7,7 @@
 
     <!-- Tema toggle -->
     <ContentPage.ToolbarItems>
-        <ToolbarItem x:Name="btnDarkMode" IconImageSource="theme_toggle.png"
+        <ToolbarItem x:Name="btnDarkMode" IconImageSource="night_mode.png"
                  Priority="0"
                  Order="Primary"
                  Clicked="OnToggleThemeClicked" />

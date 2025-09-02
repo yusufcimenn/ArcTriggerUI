@@ -206,17 +206,7 @@ namespace ArcTriggerUI
                 Slots = new[] { BtnOff1, BtnOff2 },
                 TargetEntry = OffsetEntry
             };
-            sections["strike"] = new SectionConfig
-            {
-                Id = "strike",
-                Mode = SectionMode.Decimal,
-                Catalog = new() { "10", "20", "30", "40", "50", "60", "100", "150" },
-                Selected = new[] { "40", "80", "150" },   // default 3 slot
-                PrefKey = "hot.off.v1",
-                TargetEntry = StrikeEntry
-            };
-
-
+            
             foreach (var s in sections.Values)
             {
                 LoadSection(s);
@@ -674,7 +664,7 @@ namespace ArcTriggerUI
                 app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
                     ? AppTheme.Light
                     : AppTheme.Dark;
-                btnDarkMode.IconImageSource = "theme_toggle.png";
+                btnDarkMode.IconImageSource = "day_mode.png";
                 btnDarkMode.Text = "Light";
                 
 
@@ -687,7 +677,7 @@ namespace ArcTriggerUI
                 app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
                     ? AppTheme.Light
                     : AppTheme.Dark; 
-                btnDarkMode.IconImageSource = "lightt.png";
+                btnDarkMode.IconImageSource = "night_mode.png";
                 btnDarkMode.Text = "Dark";
                 imageDarkandLight = false;
             }
@@ -1068,7 +1058,7 @@ namespace ArcTriggerUI
                 OrderMode = _selectedOrderMode,
                 Offset = decimal.Parse(OffsetEntry.Text),
                 Strike = decimal.Parse(
-    StrikeEntry.Text.Replace(".", ","),
+    StrikesPicker.SelectedItem.ToString().Replace(".", ","),
     new CultureInfo("tr-TR")
 ),
                 Expiry = ExpPicker.SelectedIndex.ToString(),
@@ -1515,7 +1505,7 @@ namespace ArcTriggerUI
             catch (Exception ex)
             {
 
-                ApplyStrikesToUI(new List<decimal>());
+               
             }
         }
         private void StrikesPicker_SelectedIndexChanged(object sender, EventArgs e)
@@ -1533,13 +1523,7 @@ namespace ArcTriggerUI
 
         // SECDEF: StrikeEntry ve 2 preset butonu doldur
         // SECDEF: StrikeEntry ve 2 preset butonu doldur
-        private void ApplyStrikesToUI(List<decimal> strikes)
-        {
-            if (strikes.Count > 0)
-                StrikeEntry.Text = strikes[0].ToString("0.##", CultureInfo.InvariantCulture);
-            else
-                StrikeEntry.Text = string.Empty;
-
-            }
+       
+    
     }
 }
