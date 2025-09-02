@@ -7,18 +7,25 @@
     xmlns:pages="clr-namespace:ArcTriggerUI.Pages"
     Title="ArcTriggerUI">
 
-    <!-- Açılış sayfan: MainPage -->
-    
+    <!-- Giriş -->
+    <FlyoutItem Title="Login Page" Route="MyNewPage">
+        <ShellContent
+            Title="Login Page"
+            ContentTemplate="{DataTemplate pages:LoginPageWV}" />
+    </FlyoutItem>
 
-    <!-- Diğer sayfalar -->
-    <ShellContent 
-        Title="Login Page"
-        ContentTemplate="{DataTemplate pages:LoginPageWV}"
-        Route="MyNewPage" />
+    <!-- Ana ekran -->
+    <FlyoutItem Title="ARC TRIGGER" Route="MainPage">
+        <ShellContent
+            Title="ARC TRIGGER"
+            ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
 
-    <ShellContent 
-    Title="ARC TRIGGER"
-    ContentTemplate="{DataTemplate local:MainPage}"
-    Route="MainPage" />
+    <!-- Geçmiş -->
+    <FlyoutItem Title="History" Route="history">
+        <ShellContent
+            Title="History"
+            ContentTemplate="{DataTemplate pages:HistoryPage}" />
+    </FlyoutItem>
 
 </Shell>
