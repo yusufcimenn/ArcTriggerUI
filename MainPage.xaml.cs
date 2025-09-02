@@ -654,8 +654,9 @@ namespace ArcTriggerUI
                 app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
                     ? AppTheme.Light
                     : AppTheme.Dark;
-                btnDarkMode.IconImageSource = "lightt.png";
+                btnDarkMode.IconImageSource = "theme_toggle.png";
                 btnDarkMode.Text = "Light";
+                
 
                 imageDarkandLight = true;
             }
@@ -665,9 +666,10 @@ namespace ArcTriggerUI
 
                 app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
                     ? AppTheme.Light
-                    : AppTheme.Dark;
-                btnDarkMode.IconImageSource = "theme_toggle.png";
+                    : AppTheme.Dark; 
+                btnDarkMode.IconImageSource = "lightt.png";
                 btnDarkMode.Text = "Dark";
+                imageDarkandLight = false;
             }
 
         }
