@@ -179,8 +179,7 @@
     <ScrollView x:Name="Scrolls" Orientation="Both">
         <Grid x:Name="ContentGrid" Padding="8" HorizontalOptions="Center" VerticalOptions="Center">
             <FlexLayout>
-                
-           
+  
             <Frame HorizontalOptions="Fill"
                    VerticalOptions="Center"
                    BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
@@ -190,9 +189,22 @@
                    Padding="12">
 
 
-                <Grid RowDefinitions="*,Auto,*,Auto" ColumnDefinitions="*" ColumnSpacing="16">
+                    <Grid Padding="16" RowSpacing="8" ColumnSpacing="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                    <!-- TOP ROW: inputs -->
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- TOP ROW: inputs -->
                     <Grid Grid.Row="0" Grid.Column="0">
                         <HorizontalStackLayout Spacing="8" Padding="12,2" HorizontalOptions="Start">
 
@@ -260,7 +272,7 @@
                             <VerticalStackLayout Spacing="2" WidthRequest="150">
                                 <Label Text="SecType" Style="{StaticResource HeaderLabel}" />
                                 <Picker x:Name="SecTypePicker"
-                                        Title="SecType"
+                                        Title=""
                                         WidthRequest="150"
                                         SelectedIndexChanged="OnSecTypeChanged" />
                             </VerticalStackLayout>
@@ -269,7 +281,7 @@
                             <VerticalStackLayout Spacing="2" WidthRequest="150">
                                 <Label Text="Months" Style="{StaticResource HeaderLabel}" />
                                 <Picker x:Name="MonthsPicker"
-                                        Title="Month"
+                                        Title=""
                                         WidthRequest="150"
                                         SelectedIndexChanged="OnMonthChanged" />
                             </VerticalStackLayout>
@@ -278,15 +290,9 @@
                             <VerticalStackLayout Spacing="2" Padding="0,0,0,0" WidthRequest="150">
                                 <Label Text="Strike" Style="{StaticResource HeaderLabel}"/>
                                 <Picker x:Name="StrikesPicker"
-        Title="Strikes"
+        Title=""
         WidthRequest="150"
         SelectedIndexChanged="StrikesPicker_SelectedIndexChanged"/>
-                                <Entry x:Name="StrikeEntry"
-           Style="{StaticResource EntryNumericDense}"
-           WidthRequest="120"
-           HorizontalTextAlignment="Center"
-           Placeholder="Entry Value" Keyboard="Numeric" 
-                                       />
 
                             </VerticalStackLayout>
 
