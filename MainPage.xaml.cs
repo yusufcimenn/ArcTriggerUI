@@ -1034,15 +1034,20 @@ namespace ArcTriggerUI
             else if (StockPicker?.SelectedItem != null)
                 symbol = StockPicker.SelectedItem.ToString();
 
+            var trCulture = new CultureInfo("tr-TR");
             var order = new Dtos.Orders.Order
             {
+
                 Symbol = symbol, // << sadece burası değişti
                 TriggerPrice = int.Parse(TriggerEntry.Text),
                 OrderType = _selectedOrderType,
                 OrderMode = _selectedOrderMode,
                 Offset = decimal.Parse(OffsetEntry.Text),
-                Strike = StrikeEntry.Text.ToString(),
-                Expiry = ExpPicker.SelectedItem.ToString(),
+                Strike = decimal.Parse(
+    StrikeEntry.Text.Replace(".", ","),
+    new CultureInfo("tr-TR")
+),
+                Expiry = ExpPicker.SelectedIndex.ToString(),
                 PositionSize = int.Parse(PositionEntry.Text),
                 StopLoss = decimal.Parse(StopLossEntry.Text),
                 ProfitTaking = decimal.Parse(ProfitEntry.Text)

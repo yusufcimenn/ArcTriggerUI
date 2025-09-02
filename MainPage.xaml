@@ -44,6 +44,7 @@
         <Style x:Key="EntryNumericDense" TargetType="Entry">
             <Setter Property="HeightRequest" Value="{StaticResource ControlHeight}" />
             <Setter Property="WidthRequest" Value="110" />
+            
             <Setter Property="HorizontalOptions" Value="Center" />
             <Setter Property="HorizontalTextAlignment" Value="Center" />
             <Setter Property="BackgroundColor"
@@ -201,12 +202,18 @@
                                 <Label Text="Stock" Style="{StaticResource HeaderLabel}" />
 
                                 <!-- İsim/symbol arama -->
-                                <Entry x:Name="SymbolSearchEntry"
-                                Placeholder="Search by name or symbol"
-                                TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"
-                                BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
-                                ReturnType="Search"
-                                TextChanged="OnSymbolSearchTextChanged" />
+                                <Border
+                                     Stroke="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"
+    StrokeThickness="1"
+    StrokeShape="RoundRectangle 8">
+                                    <Entry x:Name="SymbolSearchEntry"
+ Placeholder="Search by name or symbol"
+ TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"
+ BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
+ ReturnType="Search"
+ TextChanged="OnSymbolSearchTextChanged" />
+                                </Border>
+                               
 
                                 <!-- Yazarken çıkan öneriler -->
                                 <CollectionView x:Name="SymbolSuggestions"
@@ -259,14 +266,17 @@
                                         <ColumnDefinition Width="110" />
                                         <ColumnDefinition Width="50" />
                                     </Grid.ColumnDefinitions>
-
-                                    <Entry x:Name="TriggerEntry"
+                                    <Border Padding="0,0,0,0"
+                                 Stroke="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"
+StrokeThickness="1"
+StrokeShape="RoundRectangle 8">
+                                        <Entry x:Name="TriggerEntry"
                                            Grid.Column="0"
                                            Style="{StaticResource EntryNumericDense}"
                                            Placeholder="100.00"
                                            Keyboard="Numeric"
                                            TextChanged="OnTriggerPriceTextChanged"/>
-
+                                    </Border>
                                     <Grid Grid.Column="1" RowDefinitions="Auto,Auto" RowSpacing="4"
                                           VerticalOptions="Center">
                                         <Button Text="▲"
@@ -313,7 +323,7 @@
                             </VerticalStackLayout>
 
                             <!-- Offset -->
-                            <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="170">
+                            <VerticalStackLayout Spacing="2" Padding="10,0" WidthRequest="170">
                                 <Label Text="Offset" Style="{StaticResource HeaderLabel}"/>
 
                                 <Entry x:Name="OffsetEntry"

@@ -8,7 +8,7 @@ namespace ArcTriggerUI.Const
 {
     public class Configs
     {
-        public static string BaseUrl { get; private set; } = "http://192.168.1.112:8000/api";
+        public static string BaseUrl { get; private set; } = "http://192.168.1.104:8000/api";
        
     }
 
