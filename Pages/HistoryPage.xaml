@@ -5,8 +5,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     Title="History"
     BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#0C0C0F}">
+    <ScrollView>
 
-    <Grid Padding="12">
+        <Grid Padding="12">
         <RefreshView x:Name="RefreshHost" IsRefreshing="{Binding IsBusy}" Command="{Binding RefreshCommand}">
             <CollectionView ItemsSource="{Binding Orders}"
                             ItemSizingStrategy="MeasureAllItems"
@@ -61,5 +62,6 @@
                 <Button Text="Refresh" Clicked="OnReloadClicked" />
             </HorizontalStackLayout>
         </Grid>
-    </Grid>
+        </Grid>
+    </ScrollView>
 </ContentPage>

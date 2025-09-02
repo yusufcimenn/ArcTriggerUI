@@ -15,21 +15,14 @@ namespace ArcTriggerUI.Dtos
     public class SymbolSearchResponse
     {
         public string symbol { get; set; } = "";
-        public string? companyHeader { get; set; } = null;  // şirket adı
-        public string? name { get; set; } = null;
-        public long? conid { get; set; }   // << eklendi
-                                           // Picker’da görünecek metin 
-        public string Display
-        {
-            get
-            {
-                if (!string.IsNullOrWhiteSpace(companyHeader))
-                    return $"{symbol} - {companyHeader}";
-                if (!string.IsNullOrWhiteSpace(name))
-                    return $"{name} ({symbol})";
-                return symbol;
-            }
-        }
+        public string? name { get; set; }
+        public long? conid { get; set; }      // << eklendi
+        public string? companyHeader { get; set; } // companyheader için
+
+        // companyheader için: companyHeader varsa önce onu göster, yoksa name, yoksa symbol
+        public string Display =>
+            !string.IsNullOrWhiteSpace(companyHeader) ? $"{symbol} — {companyHeader}" :
+            string.IsNullOrWhiteSpace(name) ? symbol : $"{symbol} — {name}";
     }
 }
 

@@ -14,9 +14,6 @@
 
     <ContentPage.Resources>
 
-
-
-
         <!-- sizes -->
         <x:Double x:Key="FontSmall">12</x:Double>
         <x:Double x:Key="ControlHeight">32</x:Double>
@@ -44,7 +41,6 @@
         <Style x:Key="EntryNumericDense" TargetType="Entry">
             <Setter Property="HeightRequest" Value="{StaticResource ControlHeight}" />
             <Setter Property="WidthRequest" Value="110" />
-            
             <Setter Property="HorizontalOptions" Value="Center" />
             <Setter Property="HorizontalTextAlignment" Value="Center" />
             <Setter Property="BackgroundColor"
@@ -204,16 +200,15 @@
                                 <!-- İsim/symbol arama -->
                                 <Border
                                      Stroke="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"
-    StrokeThickness="1"
-    StrokeShape="RoundRectangle 8">
+                                     StrokeThickness="1"
+                                     StrokeShape="RoundRectangle 8">
                                     <Entry x:Name="SymbolSearchEntry"
- Placeholder="Search by name or symbol"
- TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"
- BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
- ReturnType="Search"
- TextChanged="OnSymbolSearchTextChanged" />
+                                     Placeholder="Search by name or symbol"
+                                     TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"
+                                     BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
+                                     ReturnType="Search"
+                                     TextChanged="OnSymbolSearchTextChanged" />
                                 </Border>
-                               
 
                                 <!-- Yazarken çıkan öneriler -->
                                 <CollectionView x:Name="SymbolSuggestions"
@@ -258,6 +253,58 @@
                                        TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
                             </VerticalStackLayout>
 
+                            <!-- SECDEF: SecType -->
+                            <VerticalStackLayout Spacing="2" WidthRequest="150">
+                                <Label Text="SecType" Style="{StaticResource HeaderLabel}" />
+                                <Picker x:Name="SecTypePicker"
+                                        Title="SecType"
+                                        WidthRequest="150"
+                                        SelectedIndexChanged="OnSecTypeChanged" />
+                            </VerticalStackLayout>
+
+                            <!-- SECDEF: Months -->
+                            <VerticalStackLayout Spacing="2" WidthRequest="150">
+                                <Label Text="Months" Style="{StaticResource HeaderLabel}" />
+                                <Picker x:Name="MonthsPicker"
+                                        Title="Month"
+                                        WidthRequest="150"
+                                        SelectedIndexChanged="OnMonthChanged" />
+                            </VerticalStackLayout>
+
+                            <!-- Strike -->
+                            <VerticalStackLayout Spacing="2" Padding="0,0,0,0" WidthRequest="150">
+                                <Label Text="Strike" Style="{StaticResource HeaderLabel}"/>
+
+                                <Entry x:Name="StrikeEntry"
+           Style="{StaticResource EntryNumericDense}"
+           WidthRequest="120"
+           HorizontalTextAlignment="Center"
+           Placeholder="Entry Value" Keyboard="Numeric" />
+
+                                <HorizontalStackLayout Spacing="4" VerticalOptions="Center" Margin="0,4,0,0">
+                                    <Button x:Name="BtnStrike1" Text="0.05"
+                Style="{StaticResource ChipButton}"
+                Clicked="OnHotPresetClicked" CommandParameter="strike">
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+
+                                    <Button x:Name="BtnStrike2" Text="0.10"
+                Style="{StaticResource ChipButton}"
+                Clicked="OnHotPresetClicked" CommandParameter="strike">
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+
+                                    <Button Text="+"
+                WidthRequest="36" MinimumWidthRequest="36" Padding="0"
+                Style="{StaticResource ChipButton}"
+                Clicked="OnHotAddClicked" CommandParameter="strike"/>
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+
                             <!-- Trigger -->
                             <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="200">
                                 <Label Text="Trigger Level" Style="{StaticResource HeaderLabel}" />
@@ -267,15 +314,15 @@
                                         <ColumnDefinition Width="50" />
                                     </Grid.ColumnDefinitions>
                                     <Border Padding="0,0,0,0"
-                                 Stroke="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"
-StrokeThickness="1"
-StrokeShape="RoundRectangle 8">
+                                            Stroke="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"
+                                            StrokeThickness="1"
+                                            StrokeShape="RoundRectangle 8">
                                         <Entry x:Name="TriggerEntry"
-                                           Grid.Column="0"
-                                           Style="{StaticResource EntryNumericDense}"
-                                           Placeholder="100.00"
-                                           Keyboard="Numeric"
-                                           TextChanged="OnTriggerPriceTextChanged"/>
+                                               Grid.Column="0"
+                                               Style="{StaticResource EntryNumericDense}"
+                                               Placeholder="100.00"
+                                               Keyboard="Numeric"
+                                               TextChanged="OnTriggerPriceTextChanged"/>
                                     </Border>
                                     <Grid Grid.Column="1" RowDefinitions="Auto,Auto" RowSpacing="4"
                                           VerticalOptions="Center">
@@ -295,14 +342,14 @@ StrokeShape="RoundRectangle 8">
                                 <Label Text="Type" Style="{StaticResource HeaderLabel}"/>
                                 <HorizontalStackLayout Spacing="5" VerticalOptions="Center">
                                     <RadioButton x:Name="CallRadioButton" 
-                     Content="Call" 
-                     IsChecked="True"
-                     TextColor="{DynamicResource PrimaryTextColor}"
-                     CheckedChanged="OnOrderTypeCheckedChanged"/>
+                                                 Content="Call" 
+                                                 IsChecked="True"
+                                                 TextColor="{DynamicResource PrimaryTextColor}"
+                                                 CheckedChanged="OnOrderTypeCheckedChanged"/>
                                     <RadioButton x:Name="PutRadioButton" 
-                     Content="Put"
-                     TextColor="{DynamicResource PrimaryTextColor}"
-                     CheckedChanged="OnOrderTypeCheckedChanged"/>
+                                                 Content="Put"
+                                                 TextColor="{DynamicResource PrimaryTextColor}"
+                                                 CheckedChanged="OnOrderTypeCheckedChanged"/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
 
@@ -311,14 +358,14 @@ StrokeShape="RoundRectangle 8">
                                 <Label Text="Order" Style="{StaticResource HeaderLabel}" />
                                 <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
                                     <RadioButton x:Name="MktRadioButton" 
-                     Content="MKT" 
-                     IsChecked="True"
-                     TextColor="{DynamicResource PrimaryTextColor}"
-                     CheckedChanged="OnOrderModeCheckedChanged"/>
+                                                 Content="MKT" 
+                                                 IsChecked="True"
+                                                 TextColor="{DynamicResource PrimaryTextColor}"
+                                                 CheckedChanged="OnOrderModeCheckedChanged"/>
                                     <RadioButton x:Name="LmtRadioButton" 
-                     Content="LMT"
-                     TextColor="{DynamicResource PrimaryTextColor}"
-                     CheckedChanged="OnOrderModeCheckedChanged"/>
+                                                 Content="LMT"
+                                                 TextColor="{DynamicResource PrimaryTextColor}"
+                                                 CheckedChanged="OnOrderModeCheckedChanged"/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
 
@@ -336,7 +383,6 @@ StrokeShape="RoundRectangle 8">
                                     <Button x:Name="BtnOff1" Text="0.05"
                                             Style="{StaticResource ChipButton}"
                                             Clicked="OnHotPresetClicked" CommandParameter="off">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
@@ -345,7 +391,6 @@ StrokeShape="RoundRectangle 8">
                                     <Button x:Name="BtnOff2" Text="0.10"
                                             Style="{StaticResource ChipButton}"
                                             Clicked="OnHotPresetClicked" CommandParameter="off">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
@@ -357,10 +402,11 @@ StrokeShape="RoundRectangle 8">
                                             Clicked="OnHotAddClicked" CommandParameter="off"/>
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
+
                             <VerticalStackLayout Spacing="2" WidthRequest="170" >
                                 <Label HorizontalTextAlignment="Center">Expiry</Label>
-                                                   <Picker x:Name="ExpPicker"   WidthRequest="170"
-SelectedIndexChanged="OnExpirationChanged">
+                                <Picker x:Name="ExpPicker" WidthRequest="170"
+                                        SelectedIndexChanged="OnExpirationChanged">
                                     <Picker.Items>
                                         <x:String>GTC</x:String>
                                         <x:String>OPG</x:String>
@@ -370,72 +416,13 @@ SelectedIndexChanged="OnExpirationChanged">
                                     </Picker.Items>
                                 </Picker>
                             </VerticalStackLayout>
-                            <!-- Strike -->
-                            <VerticalStackLayout Spacing="2" Padding="0,0,0,0" WidthRequest="150">
-                                <Label Text="Strike" Style="{StaticResource HeaderLabel}"/>
 
-                                <Entry x:Name="StrikeEntry"
-        Style="{StaticResource EntryNumericDense}"
-        WidthRequest="120"
-        HorizontalTextAlignment="Center"
-        Placeholder="Entry Value" Keyboard="Numeric" />
-
-                                <HorizontalStackLayout Spacing="4" VerticalOptions="Center" Margin="0,4,0,0">
-                                  
-                                    <Button x:Name="BtnStrike1" Text="0.05"
-             Style="{StaticResource ChipButton}"
-             Clicked="OnHotPresetClicked" CommandParameter="strike">
-
-                                        <Button.GestureRecognizers>
-                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
-                                        </Button.GestureRecognizers>
-                                    </Button>
-
-                                    
-                                   
-                                    <Button x:Name="BtnStrike2" Text="0.10"
-             Style="{StaticResource ChipButton}"
-             Clicked="OnHotPresetClicked" CommandParameter="strike">
-
-                                        <Button.GestureRecognizers>
-                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
-                                        </Button.GestureRecognizers>
-                                    </Button>
-                                    <Button Text="+"
-WidthRequest="36" MinimumWidthRequest="36" Padding="0"
-Style="{StaticResource ChipButton}"
-Clicked="OnHotAddClicked" CommandParameter="strike"/>
-
-
-                                </HorizontalStackLayout>
-                            </VerticalStackLayout>
-
-                          
-
-
-                            <!-- Alpha -->
                             
 
+                            <!-- Alpha -->
+
                         </HorizontalStackLayout>
-                        <!--<VerticalStackLayout Grid.Row="0" Grid.Column="1" Grid.RowSpan="1"
-                     Spacing="10" HorizontalOptions="End" Padding="0,0,12,0" MinimumWidthRequest="200" Margin="8,0,12,0">
-                            <Button Text="Place Order"
-            Style="{StaticResource PrimaryAction}"
-            Clicked="OnCreateOrdersClicked"/>
-
-                            <Button Text="+ Add Order"
-            Style="{StaticResource ActionOcean}"
-            Clicked="OnAddOrderClicked"/>
-                            <Entry x:Name="numberEntry"
-           Placeholder="Enter 1-9"
-           Keyboard="Numeric"
-           MaxLength="1"
-           TextChanged="OnNumberEntryTextChanged"/>
-                        </VerticalStackLayout>-->
                     </Grid>
-
-                    <!-- RIGHT COLUMN -->
-
 
                     <!-- BOTTOM: entries + chip presets -->
                     <Grid Grid.Row="1" Grid.Column="0">
@@ -462,19 +449,16 @@ Clicked="OnHotAddClicked" CommandParameter="strike"/>
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
                                     <Button x:Name="BtnPos1" Text="$5K"  Style="{StaticResource ChipButton}" 
                                             Clicked="OnHotPresetClicked" CommandParameter="pos">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
                                     </Button>
                                     <Button x:Name="BtnPos2" Text="$10K" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="pos">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
                                     </Button>
                                     <Button x:Name="BtnPos3" Text="$25K" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="pos">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
@@ -491,19 +475,16 @@ Clicked="OnHotAddClicked" CommandParameter="strike"/>
                                        HorizontalOptions="Start" HorizontalTextAlignment="Center"/>
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
                                     <Button x:Name="BtnStop1" Text="$0.20" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
                                     </Button>
                                     <Button x:Name="BtnStop2" Text="$0.50" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
                                     </Button>
                                     <Button x:Name="BtnStop3" Text="$1.00" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="stop">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
@@ -520,19 +501,16 @@ Clicked="OnHotAddClicked" CommandParameter="strike"/>
                                        HorizontalOptions="Start" HorizontalTextAlignment="Center" />
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
                                     <Button x:Name="BtnProf1" Text="10%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
                                     </Button>
                                     <Button x:Name="BtnProf2" Text="20%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
                                     </Button>
                                     <Button x:Name="BtnProf3" Text="30%" Style="{StaticResource ChipButton}" Clicked="OnHotPresetClicked" CommandParameter="prof">
-
                                         <Button.GestureRecognizers>
                                             <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
                                         </Button.GestureRecognizers>
@@ -541,27 +519,6 @@ Clicked="OnHotAddClicked" CommandParameter="strike"/>
                                 </HorizontalStackLayout>
                             </Grid>
 
-                            <!--<VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="6" HorizontalOptions="End" Padding="0,0,16,0">
-                                <Label Text="Actions" Style="{StaticResource HeaderLabel}" />
-                                <HorizontalStackLayout Spacing="6">
-                                    <VerticalStackLayout>
-                                        <Button Text="Place Order"
-                                     Style="{StaticResource PrimaryAction}"
-                                     Clicked="OnCreateOrdersClicked"/>
-
-                                        <Button Text="+ Add Order"
-                                     Style="{StaticResource ActionOcean}"
-                                     Clicked="OnAddOrderClicked"/>
-                                        <Entry x:Name="numberEntry"
-                                     Placeholder="Enter 1-9"
-                                     Keyboard="Numeric"
-                                     MaxLength="1"
-                                     TextChanged="OnNumberEntryTextChanged"/>
-                                    </VerticalStackLayout>
-                                    <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
-                                    <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnGetOrdersClicked"/>
-                                </HorizontalStackLayout>
-                            </VerticalStackLayout>-->
                             <Grid Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" RowSpacing="12" Padding="12,0">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -572,50 +529,40 @@ Clicked="OnHotAddClicked" CommandParameter="strike"/>
                                 <VerticalStackLayout >
                                     <HorizontalStackLayout Padding="0,10">
                                         <Entry x:Name="numberEntry"
-                                           
-Placeholder="Enter 1-9"
-Keyboard="Numeric"
-MaxLength="1"
-TextChanged="OnNumberEntryTextChanged"/>
+                                               Placeholder="Enter 1-9"
+                                               Keyboard="Numeric"
+                                               MaxLength="1"
+                                               TextChanged="OnNumberEntryTextChanged"/>
                                     </HorizontalStackLayout>
-                                    
+
                                     <HorizontalStackLayout Spacing="1">
 
                                         <Button Text="+ Order"
-Style="{StaticResource ActionOcean}"
-Clicked="OnAddOrderClicked"/>
+                                                Style="{StaticResource ActionOcean}"
+                                                Clicked="OnAddOrderClicked"/>
                                         <Button Text="Save"
-          Style="{StaticResource PrimaryAction}"
-          Clicked="OnCreateOrdersClicked"/>
+                                                Style="{StaticResource PrimaryAction}"
+                                                Clicked="OnCreateOrdersClicked"/>
                                         <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
                                         <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnGetOrdersClicked"/>
 
-
                                     </HorizontalStackLayout>
                                     <HorizontalStackLayout Padding="0,10,10,10">
-                                      
-
                                     </HorizontalStackLayout>
 
                                 </VerticalStackLayout>
 
                             </Grid>
 
-                           
                         </HorizontalStackLayout>
-                        
+
                     </Grid>
-
-                 
-
-                    
 
                     <!-- Orders Container -->
                     <VerticalStackLayout x:Name="OrdersContainer"
                                          Grid.Row="3" Grid.ColumnSpan="2"
                                          Spacing="8"
                                          Padding="6"/>
-                   
 
                 </Grid>
             </Frame>

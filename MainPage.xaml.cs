@@ -15,6 +15,7 @@ using System.Threading;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Generic; // SECDEF: listeler için
 
 namespace ArcTriggerUI
 {
@@ -69,6 +70,35 @@ namespace ArcTriggerUI
                 string.IsNullOrWhiteSpace(name) ? symbol : $"{symbol} — {name}";
         }
 
+        // =========================
+        // SECDEF: akış için state
+        // =========================
+        private List<string> _secdefSecTypes = new();
+        private List<string> _secdefMonths = new();
+        private List<string> _secdefExchanges = new(); // strikes çağrısında kullanacağız
+
+        // SECDEF: hafif DTO'lar
+        private class ConidInfoResponse
+        {
+            public string? conid { get; set; }
+            public string? symbol { get; set; }
+            public string? description { get; set; }
+            public List<string>? secTypes { get; set; }
+        }
+        private class SecTypeDetailResponse
+        {
+            public string? conid { get; set; }
+            public string? symbol { get; set; }
+            public string? secType { get; set; }
+            public List<string>? months { get; set; }
+            public List<string>? exchanges { get; set; }
+        }
+        private class StrikesResponse
+        {
+            public List<decimal>? call { get; set; }
+            public List<decimal>? put { get; set; }
+        }
+
         public MainPage(IApiService apiService)
         {
             InitializeComponent();
@@ -85,6 +115,8 @@ namespace ArcTriggerUI
 
             // symbols text için: CollectionView’a source bağla (XAML’daki SymbolSuggestions)
             SymbolSuggestions.ItemsSource = _symbolResults;
+
+
         }
 
 
@@ -456,6 +488,9 @@ namespace ArcTriggerUI
 
                 // marketprice için: sembol değişince fiyatı güncelle
                 _ = UpdateMarketPriceAsync(); // marketprice için
+
+                // SECDEF: yeni sembolde secTypes'ı yükle
+                _ = LoadSecTypesForCurrentAsync();
             }
         }
         #endregion
@@ -1139,7 +1174,8 @@ namespace ArcTriggerUI
                     // marketprice için: seçimden sonra fiyatı güncelle
                     _ = UpdateMarketPriceAsync(); // marketprice için
 
-                    // DisplayLabel’a da yansısın (OnSymbolChanged zaten tetiklenecek)
+                    // SECDEF: yeni sembolde secTypes'ı yükle
+                    _ = LoadSecTypesForCurrentAsync();
                 }
             }
             catch { /* yoksay */ }
@@ -1354,6 +1390,158 @@ namespace ArcTriggerUI
                 }
                 return null;
             }
+        }
+
+        // ===========================
+        // SECDEF: symbol -> secTypes
+        // ===========================
+        private async Task LoadSecTypesForCurrentAsync()
+        {
+            try
+            {
+                if (!_selectedConid.HasValue) return;
+
+                var symbolText = StockPicker?.SelectedIndex >= 0
+                    ? StockPicker.Items[StockPicker.SelectedIndex]
+                    : (SymbolSearchEntry?.Text ?? string.Empty);
+
+                if (string.IsNullOrWhiteSpace(symbolText)) return;
+
+                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/conid/info";
+                var req = new { conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture), symbol = symbolText };
+
+                var resp = await _apiService.PostAsync<object, ConidInfoResponse>(url, req);
+
+                _secdefSecTypes = (resp?.secTypes ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+                // XAML'de tanımlı olacağını varsaydığımız picker'lar
+                SecTypePicker.Items.Clear();
+                foreach (var st in _secdefSecTypes)
+                    SecTypePicker.Items.Add(st);
+                SecTypePicker.Title = _secdefSecTypes.Count > 0 ? "Select SecType" : "No SecType";
+
+                // önceki seçimleri temizle
+                MonthsPicker.Items.Clear();
+                MonthsPicker.Title = "Month";
+                _secdefMonths.Clear();
+                _secdefExchanges.Clear();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("LoadSecTypesForCurrentAsync error: " + ex.Message);
+                SecTypePicker.Items.Clear();
+                SecTypePicker.Title = "No SecType";
+                MonthsPicker.Items.Clear();
+                MonthsPicker.Title = "Month";
+                _secdefSecTypes.Clear();
+                _secdefMonths.Clear();
+                _secdefExchanges.Clear();
+            }
+        }
+
+        // ==================================
+        // SECDEF: secType -> months/exchanges
+        // ==================================
+        // XAML -> SecTypePicker.SelectedIndexChanged="OnSecTypeChanged"
+        private async void OnSecTypeChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                if (SecTypePicker.SelectedIndex < 0) return;
+                if (!_selectedConid.HasValue) return;
+
+                var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
+
+                var symbolText = StockPicker?.SelectedIndex >= 0
+                    ? StockPicker.Items[StockPicker.SelectedIndex]
+                    : (SymbolSearchEntry?.Text ?? string.Empty);
+
+                if (string.IsNullOrWhiteSpace(symbolText)) return;
+
+                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/sectype/info";
+                var req = new { conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture), symbol = symbolText, secType = secType };
+
+                var resp = await _apiService.PostAsync<object, SecTypeDetailResponse>(url, req);
+
+                _secdefMonths = (resp?.months ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                _secdefExchanges = (resp?.exchanges ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+                MonthsPicker.Items.Clear();
+                foreach (var m in _secdefMonths)
+                    MonthsPicker.Items.Add(m);
+                MonthsPicker.Title = _secdefMonths.Count > 0 ? "Select Month" : "No Month";
+
+                // strike presetlerini temizle
+                ApplyStrikesToUI(new List<decimal>());
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("OnSecTypeChanged error: " + ex.Message);
+                MonthsPicker.Items.Clear();
+                MonthsPicker.Title = "No Month";
+                _secdefMonths.Clear();
+                _secdefExchanges.Clear();
+                ApplyStrikesToUI(new List<decimal>());
+            }
+        }
+
+        // ==========================
+        // SECDEF: month -> strikes
+        // ==========================
+        // XAML -> MonthsPicker.SelectedIndexChanged="OnMonthChanged"
+        private async void OnMonthChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                if (MonthsPicker.SelectedIndex < 0) return;
+                if (SecTypePicker.SelectedIndex < 0) return;
+                if (!_selectedConid.HasValue) return;
+
+                var month = MonthsPicker.Items[MonthsPicker.SelectedIndex];
+                var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
+
+                // exchange seçimi yoksa ilkini kullan
+                var exchange = _secdefExchanges.FirstOrDefault() ?? string.Empty;
+
+                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/strikes";
+                var req = new
+                {
+                    conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture),
+                    secType = secType,
+                    month = month,
+                    exchange = exchange
+                };
+
+                var resp = await _apiService.PostAsync<object, StrikesResponse>(url, req);
+
+                var strikes = ((resp?.call ?? new List<decimal>()) as IEnumerable<decimal>)
+                              .Concat((resp?.put ?? new List<decimal>()))
+                              .Distinct()
+                              .OrderBy(x => x)
+                              .ToList();
+
+                ApplyStrikesToUI(strikes);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("OnMonthChanged error: " + ex.Message);
+                ApplyStrikesToUI(new List<decimal>());
+            }
+        }
+
+        // SECDEF: StrikeEntry ve 2 preset butonu doldur
+        private void ApplyStrikesToUI(List<decimal> strikes)
+        {
+            if (strikes.Count > 0)
+                StrikeEntry.Text = strikes[0].ToString("0.##", CultureInfo.InvariantCulture);
+            else
+                StrikeEntry.Text = string.Empty;
+
+            if (BtnStrike1 != null)
+                BtnStrike1.Text = strikes.ElementAtOrDefault(0).ToString("0.##", CultureInfo.InvariantCulture);
+
+            if (BtnStrike2 != null)
+                BtnStrike2.Text = strikes.ElementAtOrDefault(1).ToString("0.##", CultureInfo.InvariantCulture);
         }
     }
 }
