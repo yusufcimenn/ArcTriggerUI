@@ -274,35 +274,17 @@
                             <!-- Strike -->
                             <VerticalStackLayout Spacing="2" Padding="0,0,0,0" WidthRequest="150">
                                 <Label Text="Strike" Style="{StaticResource HeaderLabel}"/>
-
+                                <Picker x:Name="StrikesPicker"
+        Title="Strikes"
+        WidthRequest="150"
+        SelectedIndexChanged="StrikesPicker_SelectedIndexChanged"/>
                                 <Entry x:Name="StrikeEntry"
            Style="{StaticResource EntryNumericDense}"
            WidthRequest="120"
            HorizontalTextAlignment="Center"
-           Placeholder="Entry Value" Keyboard="Numeric" />
+           Placeholder="Entry Value" Keyboard="Numeric" 
+                                       />
 
-                                <HorizontalStackLayout Spacing="4" VerticalOptions="Center" Margin="0,4,0,0">
-                                    <Button x:Name="BtnStrike1" Text="0.05"
-                Style="{StaticResource ChipButton}"
-                Clicked="OnHotPresetClicked" CommandParameter="strike">
-                                        <Button.GestureRecognizers>
-                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
-                                        </Button.GestureRecognizers>
-                                    </Button>
-
-                                    <Button x:Name="BtnStrike2" Text="0.10"
-                Style="{StaticResource ChipButton}"
-                Clicked="OnHotPresetClicked" CommandParameter="strike">
-                                        <Button.GestureRecognizers>
-                                            <TapGestureRecognizer Buttons="Secondary" Tapped="OnPresetRightClick"/>
-                                        </Button.GestureRecognizers>
-                                    </Button>
-
-                                    <Button Text="+"
-                WidthRequest="36" MinimumWidthRequest="36" Padding="0"
-                Style="{StaticResource ChipButton}"
-                Clicked="OnHotAddClicked" CommandParameter="strike"/>
-                                </HorizontalStackLayout>
                             </VerticalStackLayout>
 
                             <!-- Trigger -->

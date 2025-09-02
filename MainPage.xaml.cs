@@ -193,7 +193,6 @@ namespace ArcTriggerUI
                 Catalog = new() { "10", "20", "30", "40", "50", "60", "100", "150" },
                 Selected = new[] { "40", "80", "150" },   // default 3 slot
                 PrefKey = "hot.off.v1",
-                Slots = new[] { BtnStrike1, BtnStrike2 },
                 TargetEntry = StrikeEntry
             };
 
@@ -736,35 +735,6 @@ namespace ArcTriggerUI
             }
         }
 
-        //protected override async void OnAppearing()
-        //{
-        //    base.OnAppearing();
-        //    try
-        //    {
-        //        string url = "http://192.168.1.112:8000/api/getSymbol";
-        //
-        //        var request = new ResultSymbols
-        //        {
-        //            symbol = "AAPL",
-        //            name = true,
-        //            //secType = "STK"
-        //        };
-        //
-        //        // TResponse artık ResultSymbols olmalı, string değil
-        //        List<ResultSymbols> result = await _apiService.PostAsync<ResultSymbols, List<ResultSymbols>>(url, request);
-        //
-        //        var first = result.FirstOrDefault();
-        //        if (first != null)
-        //        {
-        //            await DisplayAlert("Success",
-        //                $"Symbol: {first.symbol}, Name: {first.name}, SecType: {first.secType}", "OK");
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        await DisplayAlert("Error", ex.Message, "OK");
-        //    }
-        //}
 
         private async void OnDeleteOrderClicked(object sender, EventArgs e)
         {
@@ -1466,15 +1436,15 @@ namespace ArcTriggerUI
 
                 if (_secdefMonths.Count > 0)
                     MonthsPicker.SelectedIndex = 0;
-                
-               
+
+
             }
             catch
             {
                 MonthsPicker.Items.Clear();
                 _secdefMonths.Clear();
                 _secdefExchanges.Clear();
-              
+
             }
         }
 
@@ -1494,31 +1464,49 @@ namespace ArcTriggerUI
                 MonthsPicker.Title = month;
                 var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
                 var exchange = _secdefExchanges.FirstOrDefault() ?? string.Empty;
-
-                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/strikes";
-                var req = new
+                var conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
+                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/strikes?conid=" + conid+"&secType="+secType+"&month="+month+ "&exchange="+exchange;
+               
+                var resp = await _apiService.GetAsync(url);
+                var json = resp;
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var strikesData = JsonSerializer.Deserialize<StrikesResponses>(json, options);
+                var strikes = new List<decimal>();
+                if (strikesData != null)
                 {
-                    conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture),
-                    secType = secType,
-                    month = month,
-                    exchange = exchange
-                };
+                    strikes.AddRange(strikesData.Call);
+                    strikes.AddRange(strikesData.Put);
+                    
+                }
+                
+                var callData = strikesData.Call;
+               
+                foreach (var item in callData)
+                {
+                    StrikesPicker.Items.Add(item.ToString()); 
+                    
+                }
+                
 
-                var resp = await _apiService.PostAsync<object, StrikesResponse>(url, req);
-
-                var strikes = ((resp?.call ?? new List<decimal>()) as IEnumerable<decimal>)
-                              .Concat((resp?.put ?? new List<decimal>()))
-                              .Distinct()
-                              .OrderBy(x => x)
-                              .ToList();
-
-                ApplyStrikesToUI(strikes);
+                //ApplyStrikesToUI(strikes);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-              
+
                 ApplyStrikesToUI(new List<decimal>());
             }
+        }
+        private void StrikesPicker_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (StrikesPicker.SelectedIndex >= 0)
+                StrikesPicker.Title = StrikesPicker.SelectedItem.ToString();
+        }
+
+
+        public class StrikesResponses
+        {
+            public List<decimal> Call { get; set; } = new();
+            public List<decimal> Put { get; set; } = new();
         }
 
         // SECDEF: StrikeEntry ve 2 preset butonu doldur
@@ -1530,8 +1518,6 @@ namespace ArcTriggerUI
             else
                 StrikeEntry.Text = string.Empty;
 
-            BtnStrike1.Text = strikes.ElementAtOrDefault(0) > 0 ? strikes.ElementAtOrDefault(0).ToString("0.##", CultureInfo.InvariantCulture) : "";
-            BtnStrike2.Text = strikes.ElementAtOrDefault(1) > 0 ? strikes.ElementAtOrDefault(1).ToString("0.##", CultureInfo.InvariantCulture) : "";
-        }
+            }
     }
 }
