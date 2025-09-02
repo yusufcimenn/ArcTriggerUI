@@ -113,10 +113,7 @@ namespace ArcTriggerUI
             }
             _apiService = apiService;
 
-            // symbols text için: CollectionView’a source bağla (XAML’daki SymbolSuggestions)
             SymbolSuggestions.ItemsSource = _symbolResults;
-
-
         }
 
 
@@ -1414,25 +1411,21 @@ namespace ArcTriggerUI
 
                 _secdefSecTypes = (resp?.secTypes ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
-                // XAML'de tanımlı olacağını varsaydığımız picker'lar
                 SecTypePicker.Items.Clear();
                 foreach (var st in _secdefSecTypes)
                     SecTypePicker.Items.Add(st);
-                SecTypePicker.Title = _secdefSecTypes.Count > 0 ? "Select SecType" : "No SecType";
 
-                // önceki seçimleri temizle
+                if (_secdefSecTypes.Count > 0)
+                    SecTypePicker.SelectedIndex = 0;
+
                 MonthsPicker.Items.Clear();
-                MonthsPicker.Title = "Month";
                 _secdefMonths.Clear();
                 _secdefExchanges.Clear();
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine("LoadSecTypesForCurrentAsync error: " + ex.Message);
                 SecTypePicker.Items.Clear();
-                SecTypePicker.Title = "No SecType";
                 MonthsPicker.Items.Clear();
-                MonthsPicker.Title = "Month";
                 _secdefSecTypes.Clear();
                 _secdefMonths.Clear();
                 _secdefExchanges.Clear();
@@ -1451,6 +1444,7 @@ namespace ArcTriggerUI
                 if (!_selectedConid.HasValue) return;
 
                 var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
+                SecTypePicker.Title = secType;
 
                 var symbolText = StockPicker?.SelectedIndex >= 0
                     ? StockPicker.Items[StockPicker.SelectedIndex]
@@ -1469,19 +1463,18 @@ namespace ArcTriggerUI
                 MonthsPicker.Items.Clear();
                 foreach (var m in _secdefMonths)
                     MonthsPicker.Items.Add(m);
-                MonthsPicker.Title = _secdefMonths.Count > 0 ? "Select Month" : "No Month";
 
-                // strike presetlerini temizle
-                ApplyStrikesToUI(new List<decimal>());
+                if (_secdefMonths.Count > 0)
+                    MonthsPicker.SelectedIndex = 0;
+                
+               
             }
-            catch (Exception ex)
+            catch
             {
-                System.Diagnostics.Debug.WriteLine("OnSecTypeChanged error: " + ex.Message);
                 MonthsPicker.Items.Clear();
-                MonthsPicker.Title = "No Month";
                 _secdefMonths.Clear();
                 _secdefExchanges.Clear();
-                ApplyStrikesToUI(new List<decimal>());
+              
             }
         }
 
@@ -1498,9 +1491,8 @@ namespace ArcTriggerUI
                 if (!_selectedConid.HasValue) return;
 
                 var month = MonthsPicker.Items[MonthsPicker.SelectedIndex];
+                MonthsPicker.Title = month;
                 var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
-
-                // exchange seçimi yoksa ilkini kullan
                 var exchange = _secdefExchanges.FirstOrDefault() ?? string.Empty;
 
                 var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/strikes";
@@ -1522,13 +1514,14 @@ namespace ArcTriggerUI
 
                 ApplyStrikesToUI(strikes);
             }
-            catch (Exception ex)
+            catch(Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("OnMonthChanged error: " + ex.Message);
+              
                 ApplyStrikesToUI(new List<decimal>());
             }
         }
 
+        // SECDEF: StrikeEntry ve 2 preset butonu doldur
         // SECDEF: StrikeEntry ve 2 preset butonu doldur
         private void ApplyStrikesToUI(List<decimal> strikes)
         {
@@ -1537,11 +1530,8 @@ namespace ArcTriggerUI
             else
                 StrikeEntry.Text = string.Empty;
 
-            if (BtnStrike1 != null)
-                BtnStrike1.Text = strikes.ElementAtOrDefault(0).ToString("0.##", CultureInfo.InvariantCulture);
-
-            if (BtnStrike2 != null)
-                BtnStrike2.Text = strikes.ElementAtOrDefault(1).ToString("0.##", CultureInfo.InvariantCulture);
+            BtnStrike1.Text = strikes.ElementAtOrDefault(0) > 0 ? strikes.ElementAtOrDefault(0).ToString("0.##", CultureInfo.InvariantCulture) : "";
+            BtnStrike2.Text = strikes.ElementAtOrDefault(1) > 0 ? strikes.ElementAtOrDefault(1).ToString("0.##", CultureInfo.InvariantCulture) : "";
         }
     }
 }

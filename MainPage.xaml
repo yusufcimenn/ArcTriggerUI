@@ -403,19 +403,7 @@
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
 
-                            <VerticalStackLayout Spacing="2" WidthRequest="170" >
-                                <Label HorizontalTextAlignment="Center">Expiry</Label>
-                                <Picker x:Name="ExpPicker" WidthRequest="170"
-                                        SelectedIndexChanged="OnExpirationChanged">
-                                    <Picker.Items>
-                                        <x:String>GTC</x:String>
-                                        <x:String>OPG</x:String>
-                                        <x:String>DAY</x:String>
-                                        <x:String>IOC</x:String>
-                                        <x:String>PAX</x:String>
-                                    </Picker.Items>
-                                </Picker>
-                            </VerticalStackLayout>
+                            
 
                             
 
@@ -518,6 +506,20 @@
                                     <Button Text="+" Style="{StaticResource ChipButton}" Clicked="OnHotAddClicked" CommandParameter="prof"/>
                                 </HorizontalStackLayout>
                             </Grid>
+
+                            <VerticalStackLayout Spacing="2" WidthRequest="170" >
+                                <Label HorizontalTextAlignment="Center">Expiry</Label>
+                                <Picker x:Name="ExpPicker" WidthRequest="170"
+            SelectedIndexChanged="OnExpirationChanged">
+                                    <Picker.Items>
+                                        <x:String>GTC</x:String>
+                                        <x:String>OPG</x:String>
+                                        <x:String>DAY</x:String>
+                                        <x:String>IOC</x:String>
+                                        <x:String>PAX</x:String>
+                                    </Picker.Items>
+                                </Picker>
+                            </VerticalStackLayout>
 
                             <Grid Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" RowSpacing="12" Padding="12,0">
                                 <Grid.RowDefinitions>
