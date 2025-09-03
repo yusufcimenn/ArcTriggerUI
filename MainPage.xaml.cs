@@ -51,6 +51,12 @@ namespace ArcTriggerUI
 
         private readonly IApiService _apiService;
 
+        private string? _currentSecType;
+        private string? _currentMonth;
+        private string? _currentExchange;
+        private string _currentRight = "C"; // Call=C, Put=P
+        private StrikesResponses _lastStrikes; // month değiştiğinde gelen set'i tut
+
         // symbols text için: arama sonucu listesi ve debounce/iptal için CTS
         private readonly ObservableCollection<SymbolSearchResponse> _symbolResults = new();
         private CancellationTokenSource? _symbolCts;
@@ -103,6 +109,13 @@ namespace ArcTriggerUI
         {
             public List<decimal>? call { get; set; }
             public List<decimal>? put { get; set; }
+        }
+        private class SecdefInfoResponse
+        {
+            public string? conid { get; set; }
+            public string? desc2 { get; set; }
+            public string? maturityDate { get; set; }
+            public bool? showPrips { get; set; }
         }
 
         public MainPage(IApiService apiService)
@@ -270,11 +283,20 @@ namespace ArcTriggerUI
         // OrderType (Call/Put)
         private void OnOrderTypeCheckedChanged(object sender, CheckedChangedEventArgs e)
         {
-            if (e.Value) // sadece seçilen RadioButton tetiklenir
-            {
-                var radio = sender as RadioButton;
-                _selectedOrderType = radio?.Content?.ToString();
-            }
+            if (!e.Value) return;
+            var radio = sender as RadioButton;
+            _selectedOrderType = radio?.Content?.ToString();
+
+            // right paramı (Call -> C, Put -> P)
+            _currentRight = string.Equals(_selectedOrderType, "Put", StringComparison.OrdinalIgnoreCase) ? "P" : "C";
+            ClearMaturityUI();
+
+            // right değiştiğinde strike listesi de right’a göre yeniden kurulsun
+            if (_lastStrikes != null)
+                RebuildStrikesPicker();
+            // strike seçiliyse maturity’yi yeniden çek
+            if (StrikesPicker.SelectedIndex >= 0)
+                _ = LoadMaturityDateForSelectionAsync();
         }
 
         // OrderMode (MKT/LMT)
@@ -1432,6 +1454,7 @@ namespace ArcTriggerUI
 
                 var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
                 SecTypePicker.Title = secType;
+                _currentSecType = secType;
 
                 var symbolText = StockPicker?.SelectedIndex >= 0
                     ? StockPicker.Items[StockPicker.SelectedIndex]
@@ -1463,6 +1486,14 @@ namespace ArcTriggerUI
                 _secdefExchanges.Clear();
 
             }
+            _currentExchange = PickBestExchange(_secdefExchanges);
+        }
+        private string PickBestExchange(List<string> exchanges)
+        {
+            if (exchanges == null || exchanges.Count == 0) return string.Empty;
+            var prios = new[] { "SMART", "GLOBEX", "CBOE", "ISE", "ARCA", "BOX", "NYSE" };
+            var best = exchanges.FirstOrDefault(x => prios.Contains(x?.ToUpperInvariant()));
+            return string.IsNullOrWhiteSpace(best) ? (exchanges.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty) : best;
         }
 
         // ==========================
@@ -1479,11 +1510,21 @@ namespace ArcTriggerUI
 
                 var month = MonthsPicker.Items[MonthsPicker.SelectedIndex];
                 MonthsPicker.Title = month;
+                _currentMonth = month;
+                ClearMaturityUI();
+
+
+                // her ay değiştiğinde strike listesini temizleyelim ki üst üste eklenmesin
+                StrikesPicker.Items.Clear();
                 var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
-                var exchange = _secdefExchanges.FirstOrDefault() ?? string.Empty;
+                var exchange = _currentExchange ?? string.Empty;
+                _currentExchange = exchange;
                 var conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
-                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/strikes?conid=" + conid+"&secType="+secType+"&month="+month+ "&exchange="+exchange;
-               
+                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/strikes"
+    + $"?conid={conid}&secType={Uri.EscapeDataString(secType)}&month={Uri.EscapeDataString(month)}";
+                if (!string.IsNullOrWhiteSpace(exchange))
+                    url += $"&exchange={Uri.EscapeDataString(exchange)}";
+
                 var resp = await _apiService.GetAsync(url);
                 var json = resp;
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -1495,15 +1536,12 @@ namespace ArcTriggerUI
                     strikes.AddRange(strikesData.Put);
                     
                 }
+                _lastStrikes = strikesData ?? new StrikesResponses();
+                RebuildStrikesPicker();
+
                 
-                var callData = strikesData.Call;
-               
-                foreach (var item in callData)
-                {
-                    StrikesPicker.Items.Add(item.ToString()); 
-                    
-                }
-                
+
+
 
                 //ApplyStrikesToUI(strikes);
             }
@@ -1513,12 +1551,228 @@ namespace ArcTriggerUI
                
             }
         }
-        private void StrikesPicker_SelectedIndexChanged(object sender, EventArgs e)
+        private void RebuildStrikesPicker()
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                StrikesPicker.Items.Clear();
+                if (_lastStrikes == null) 
+                {
+                    ClearMaturityUI();
+                    return;
+                 }
+
+                IEnumerable<decimal> list = _currentRight == "P" ? _lastStrikes.Put : _lastStrikes.Call;
+
+                if (list != null)
+                {
+                    foreach (var s in list)
+                        StrikesPicker.Items.Add(s.ToString(CultureInfo.InvariantCulture));
+                }
+
+                // varsa ilkini seç ve maturity çek
+                if (StrikesPicker.Items.Count > 0)
+                {
+                    StrikesPicker.SelectedIndex = 0;
+                    _ = LoadMaturityDateForSelectionAsync();
+                }
+                else
+                {
+                    // hiç yoksa picker’ı temizle
+                    StrikesPicker.Title = "—";
+                    ClearMaturityUI();
+                }
+            });
+        }
+        private async Task LoadMaturityDateForSelectionAsync()
+        {
+            try
+            {
+                if (!_selectedConid.HasValue) return;
+                if (string.IsNullOrWhiteSpace(_currentSecType)) return;
+                if (string.IsNullOrWhiteSpace(_currentMonth)) return;
+                if (StrikesPicker.SelectedIndex < 0) return;
+
+                var conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
+                var secType = _currentSecType;
+                var month = _currentMonth;
+                var exchange = _currentExchange ?? string.Empty;
+
+                // strike normalize
+                var strikeText = StrikesPicker.SelectedItem?.ToString();
+                if (string.IsNullOrWhiteSpace(strikeText)) return;
+
+                if (!decimal.TryParse(strikeText, NumberStyles.Any, CultureInfo.InvariantCulture, out var strikeDec) &&
+                    !decimal.TryParse(strikeText, NumberStyles.Any, new CultureInfo("tr-TR"), out strikeDec))
+                    return;
+
+                var strikeParam = strikeDec.ToString(CultureInfo.InvariantCulture);
+
+                // URL
+                var qs = new List<string>
+        {
+            "conid="   + Uri.EscapeDataString(conid),
+            "secType=" + Uri.EscapeDataString(secType),
+            "month="   + Uri.EscapeDataString(month),
+            "strike="  + Uri.EscapeDataString(strikeParam),
+            "right="   + Uri.EscapeDataString(_currentRight)
+        };
+                if (!string.IsNullOrWhiteSpace(exchange))
+                    qs.Add("exchange=" + Uri.EscapeDataString(exchange));
+
+                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/info?" + string.Join("&", qs);
+
+                var raw = await _apiService.GetAsync(url);
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    SetMaturityUI(Array.Empty<string>());
+                    return;
+                }
+
+                // Array içindeki TÜM maturityDate'leri topla; yoksa fallback alanları dene
+                var maturities = new List<string>();
+                try
+                {
+                    using var doc = JsonDocument.Parse(raw);
+                    var root = doc.RootElement;
+
+                    if (root.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in root.EnumerateArray())
+                        {
+                            if (item.ValueKind == JsonValueKind.Object &&
+                                item.TryGetProperty("maturityDate", out var m) &&
+                                m.ValueKind == JsonValueKind.String)
+                            {
+                                var s = m.GetString();
+                                if (!string.IsNullOrWhiteSpace(s))
+                                    maturities.Add(s!);
+                            }
+                        }
+                    }
+
+                    // Fallback: tek obje ya da data/quote altından çek
+                    if (maturities.Count == 0)
+                    {
+                        string? one = ExtractMaturityAny(root)
+                                      ?? (root.TryGetProperty("data", out var dataEl) ? ExtractMaturityAny(dataEl) : null)
+                                      ?? (root.TryGetProperty("quote", out var quoteEl) ? ExtractMaturityAny(quoteEl) : null);
+                        if (!string.IsNullOrWhiteSpace(one))
+                            maturities.Add(one!);
+                    }
+                }
+                catch
+                {
+                    // JSON değilse: belki düz "20250919"
+                    var t = raw.Trim('"');
+                    if (!string.IsNullOrWhiteSpace(t)) maturities.Add(t);
+                }
+
+                // normalize + distinct + sıralama
+                var normalized = maturities
+                    .Select(NormalizeMaturityDate)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(x => x) // yyyy-MM-dd leksikografik olarak da sıralı
+                    .ToList();
+
+                SetMaturityUI(normalized);
+            }
+            catch
+            {
+                SetMaturityUI(Array.Empty<string>());
+            }
+
+            // ---- helpers ----
+            static string? ExtractMaturityAny(JsonElement el)
+            {
+                string[] keys = { "maturityDate", "maturity", "expiryDate", "expiry", "expirationDate", "expiration" };
+                foreach (var k in keys)
+                {
+                    if (el.TryGetProperty(k, out var p))
+                    {
+                        if (p.ValueKind == JsonValueKind.String) return p.GetString();
+                        if (p.ValueKind == JsonValueKind.Number && p.TryGetInt64(out var num))
+                        {
+                            var dt = (num > 9999999999)
+                                ? DateTimeOffset.FromUnixTimeMilliseconds(num).UtcDateTime
+                                : DateTimeOffset.FromUnixTimeSeconds(num).UtcDateTime;
+                            return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                        }
+                    }
+                }
+                return null;
+            }
+
+            static string? NormalizeMaturityDate(string? raw)
+            {
+                if (string.IsNullOrWhiteSpace(raw)) return null;
+                var t = raw.Trim();
+
+                if (DateTime.TryParse(t, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt))
+                    return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+                if (t.Length == 8 && t.All(char.IsDigit))
+                {
+                    var y = int.Parse(t[..4]);
+                    var m = int.Parse(t.Substring(4, 2));
+                    var d = int.Parse(t.Substring(6, 2));
+                    return new DateTime(y, m, d, 0, 0, 0, DateTimeKind.Utc).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                }
+
+                if (long.TryParse(t, out var num))
+                {
+                    var dt2 = (num > 9999999999)
+                        ? DateTimeOffset.FromUnixTimeMilliseconds(num).UtcDateTime
+                        : DateTimeOffset.FromUnixTimeSeconds(num).UtcDateTime;
+                    return dt2.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                }
+
+                return t; // en kötü ham hali
+            }
+
+            void SetMaturityUI(IEnumerable<string> maturities)
+            {
+                var list = maturities?.ToList() ?? new List<string>();
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    MaturityDateLabel.Items.Clear();
+                    if (list.Count == 0)
+                    {
+                        MaturityDateLabel.Title = "—";
+                        MaturityDateLabel.SelectedIndex = -1;
+                    }
+                    else
+                    {
+                        foreach (var m in list)
+                            MaturityDateLabel.Items.Add(m);
+
+                        MaturityDateLabel.SelectedIndex = 0;
+                        MaturityDateLabel.Title = list[0];
+                    }
+                });
+            }
+        }
+        private async void StrikesPicker_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (StrikesPicker.SelectedIndex >= 0)
                 StrikesPicker.Title = StrikesPicker.SelectedItem.ToString();
+            await LoadMaturityDateForSelectionAsync();
         }
-
+        private void MaturityDateLabel_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (MaturityDateLabel.SelectedIndex >= 0)
+                MaturityDateLabel.Title = MaturityDateLabel.Items[MaturityDateLabel.SelectedIndex];
+        }
+        private void ClearMaturityUI()
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                MaturityDateLabel.Items.Clear();
+                MaturityDateLabel.Title = "—";
+                MaturityDateLabel.SelectedIndex = -1;
+            });
+        }
 
         public class StrikesResponses
         {
@@ -1526,8 +1780,7 @@ namespace ArcTriggerUI
             public List<decimal> Put { get; set; } = new();
         }
 
-        // SECDEF: StrikeEntry ve 2 preset butonu doldur
-        // SECDEF: StrikeEntry ve 2 preset butonu doldur
+
        
     
     }

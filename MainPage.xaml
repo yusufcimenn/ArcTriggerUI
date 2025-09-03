@@ -249,7 +249,6 @@
 
                                 <!-- Dinamik sonuçlar -->
                                 <Picker x:Name="StockPicker"
-                                Title="Sybmol Name"
                                  WidthRequest="220"
                                  SelectedIndexChanged="OnSymbolChanged" />
                             </VerticalStackLayout>
@@ -296,7 +295,17 @@
 
                             </VerticalStackLayout>
 
-                            <!-- Trigger -->
+                                <!-- Maturity (new) -->
+                                <VerticalStackLayout Spacing="2" Padding="0,0,0,0" WidthRequest="100">
+                                    <Label Text="Maturity" Style="{StaticResource HeaderLabel}" />
+                                    <Picker 
+        x:Name="MaturityDateLabel"
+        Title="—"
+         WidthRequest="100"
+        SelectedIndexChanged="MaturityDateLabel_SelectedIndexChanged"/>
+                                </VerticalStackLayout>
+
+                                <!-- Trigger -->
                             <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="200">
                                 <Label Text="Trigger Level" Style="{StaticResource HeaderLabel}" />
                                 <Grid ColumnSpacing="6" Padding="0,0,4,0">
