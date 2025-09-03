@@ -4,10 +4,12 @@ using ArcTriggerUI.Dtos.Orders;
 using ArcTriggerUI.Dtos.Portfolio;
 using ArcTriggerUI.Dtos.SecDefs;
 using ArcTriggerUI.Interfaces;
+using System.Globalization;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Web;
 using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
 using static ArcTriggerUI.Dtos.SecDefs.ResultSecdef;
 
@@ -147,26 +149,28 @@ namespace ArcTriggerUI.Services
             }
         }
 
-        public async Task<string> SendOrderAsync(Order order)
+        public async Task<string> SendOrderAsync(OrderRequest order)
         {
-            string baseUrl = Configs.BaseUrl.TrimEnd('/');
-            string url = $"{baseUrl}/orderUI?" +
-                         $"symbol={order.Symbol}" +
-                         $"&triggerPrice={order.TriggerPrice}" +
-                         $"&orderType={order.OrderType}" +
-                         $"&orderMode={order.OrderMode}" +
-                         $"&offset={order.Offset}" +
-                         $"&strike={order.Strike}" +
-                         $"&expiry={order.Expiry}" +
-                         $"&positionSize={order.PositionSize}" +
-                         $"&stopLoss={order.StopLoss}" +
-                         $"&profitTaking={order.ProfitTaking}";
+            var url = $"http://192.168.1.107:8000/api/orderUI?" +
+              $"conid={order.Conid}" +
+              $"&trigger={order.Trigger}" +
+              $"&orderMode={order.OrderMode}" +
+              $"&offset={order.Offset}" +
+              $"&positionSize={order.PositionSize}" +
+              $"&stopLoss={order.StopLoss}" +
+              $"&tif={order.Tif}" +
+              $"&profitTaking={order.ProfitTaking}";
 
-            // Body boş bırakılıyor
-            var response = await _httpClient.PostAsync(url, null);
-            string responseBody = await response.Content.ReadAsStringAsync();
+            using var response = await _httpClient.PostAsync(url, null);
 
-            return $"Status: {(int)response.StatusCode} - {response.ReasonPhrase}\nBody: {responseBody}";
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"API Hatası: {response.StatusCode} - {responseBody}");
+            }
+
+            return responseBody;
         }
     }
 

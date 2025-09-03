@@ -4,18 +4,21 @@ using ArcTriggerUI.Dtos;
 using ArcTriggerUI.Dtos.Orders;
 using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
-using System.Globalization;
-using System.Resources;
-using System.Text.Json;
-using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
-
+using System;
+using System.Collections.Generic; // SECDEF: listeler için
 // symbols text için
 using System.Collections.ObjectModel;
-using System.Threading;
-using System;
+using System.Globalization;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Resources;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic; // SECDEF: listeler için
+using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
 
 namespace ArcTriggerUI
 {
@@ -1039,44 +1042,46 @@ namespace ArcTriggerUI
             return true;
         }
 
+
         private async void OnCreateOrdersClicked(object sender, EventArgs e)
         {
-            // ÜSTTEKİYLE AYNI MANTIK: conid varsa onu kullan, yoksa seçili sembolü
-            var symbol = "";
-            if (_selectedConid.HasValue)
-                symbol = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
-            else if (StockPicker?.SelectedItem != null)
-                symbol = StockPicker.SelectedItem.ToString();
-
-            var trCulture = new CultureInfo("tr-TR");
-            var order = new Dtos.Orders.Order
-            {
-
-                Symbol = symbol, // << sadece burası değişti
-                TriggerPrice = int.Parse(TriggerEntry.Text),
-                OrderType = _selectedOrderType,
-                OrderMode = _selectedOrderMode,
-                Offset = decimal.Parse(OffsetEntry.Text),
-                Strike = decimal.Parse(
-    StrikesPicker.SelectedItem.ToString().Replace(".", ","),
-    new CultureInfo("tr-TR")
-),
-                Expiry = ExpPicker.SelectedIndex.ToString(),
-                PositionSize = int.Parse(PositionEntry.Text),
-                StopLoss = decimal.Parse(StopLossEntry.Text),
-                ProfitTaking = decimal.Parse(ProfitEntry.Text)
-            };
-
             try
             {
-                string result = await _apiService.SendOrderAsync(order);
-                await DisplayAlert("API Response", result, "Tamam");
+                // Sabit değerler (UI’dan bağımsız test)
+                string oldconid = "4815747";
+                string conid = "653225215";
+                double trigger = 230.5;
+                string orderMode = "MKT";
+                double offset = 0.05;
+                double positionSize = 5000;
+                double stopLoss = 2;
+                string tif = "DAY";
+
+                // Query string oluştur
+                var url = $"http://192.168.1.107:8000/api/orderUI?" +
+                          $"oldconid={oldconid}" +
+                          $"&conid={conid}" +
+                          $"&trigger={trigger.ToString(CultureInfo.InvariantCulture)}" +
+                          $"&orderMode={orderMode}" +
+                          $"&offset={offset.ToString(CultureInfo.InvariantCulture)}" +
+                          $"&positionSize={positionSize.ToString(CultureInfo.InvariantCulture)}" +
+                          $"&stopLoss={stopLoss.ToString(CultureInfo.InvariantCulture)}" +
+                          $"&tif={tif}";
+
+                // POST request (body null)
+                var response = await _apiService.PostAsync<object, object>(url, null);
+
+                // Response’u JSON string olarak göster
+                var jsonString = JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true });
+
+                await DisplayAlert("API Response", jsonString, "Tamam");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Hata", ex.Message, "Tamam");
+                await DisplayAlert("Exception", ex.Message, "Tamam");
             }
         }
+
 
         #endregion
 

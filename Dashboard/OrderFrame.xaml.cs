@@ -1060,42 +1060,20 @@ namespace ArcTriggerUI.Dashboard
 
         private async void OnCreateOrdersClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
-            // ÜSTTEKÝYLE AYNI MANTIK: conid varsa onu kullan, yoksa seçili sembolü
-            var symbol = "";
-            if (_selectedConid.HasValue)
-                symbol = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
-            else if (StockPicker?.SelectedItem != null)
-                symbol = StockPicker.SelectedItem.ToString();
-
-            var trCulture = new CultureInfo("tr-TR");
-            var order = new Dtos.Orders.Order
+            var order = new OrderRequest
             {
-                Symbol = symbol, // << sadece burasý deðiþti
-                TriggerPrice = int.Parse(TriggerEntry.Text),
-                OrderType = _selectedOrderType,
-                OrderMode = _selectedOrderMode,
-                Offset = decimal.Parse(OffsetEntry.Text),
-                Strike = decimal.Parse(
-    StrikesPicker.SelectedItem.ToString().Replace(".", ","),
-    new CultureInfo("tr-TR")
-                ),
-                Expiry = ExpPicker.SelectedIndex.ToString(),
-                PositionSize = int.Parse(PositionEntry.Text),
-                StopLoss = decimal.Parse(StopLossEntry.Text),
-                ProfitTaking = decimal.Parse(ProfitEntry.Text)
+                Conid = "265598",
+                Trigger = 229.15,
+                OrderMode = "LMT",
+                Offset = 0.05,
+                PositionSize = 10,
+                StopLoss = 225,
+                Tif = "DAY",
+                ProfitTaking = 240
             };
 
-            try
-            {
-                string result = await _apiService.SendOrderAsync(order);
-                await DisplayAlert("API Response", result, "Tamam");
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Hata", ex.Message, "Tamam");
-            }
+            var result = await _apiService.SendOrderAsync(order);
+            await DisplayAlert("Order Result", result, "OK");
         }
         #endregion
 

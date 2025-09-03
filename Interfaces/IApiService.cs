@@ -27,7 +27,7 @@ namespace ArcTriggerUI.Interfaces
         Task<CreateOrderResponse?> CreateOrderAsync(PostOrderItem request);
         Task<OrderResponseDto?> GetOrderByIdAsync(int id);
 
-        Task<string> SendOrderAsync(Order order);
+        Task<string> SendOrderAsync(OrderRequest order);
 
     }
 }
