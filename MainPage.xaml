@@ -452,7 +452,18 @@
                                         </Button.GestureRecognizers>
                                     </Button>
                                     <Button Text="+" Style="{StaticResource ChipButton}" Clicked="OnHotAddClicked" CommandParameter="pos"/>
-                                </HorizontalStackLayout>
+                                        <VerticalStackLayout Padding="40,0,0,0" >
+                                          
+                                            <Entry IsEnabled="False" 
+                                                  
+                                                   
+        x:Name="lblQuantity"></Entry>
+                                            <Label 
+Text="Quantity"
+Style="{StaticResource HeaderLabel}" />
+                                        </VerticalStackLayout>
+                                    </HorizontalStackLayout>
+                                    
                             </Grid>
 
                             <!-- Stop Loss -->

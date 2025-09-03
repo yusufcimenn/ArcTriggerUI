@@ -4,6 +4,8 @@ using ArcTriggerUI.Dtos;
 using ArcTriggerUI.Dtos.Orders;
 using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
+using Microsoft.Maui.Controls;
+using Microsoft.Maui.Platform;
 using System;
 using System.Collections.Generic; // SECDEF: listeler için
 // symbols text için
@@ -50,7 +52,8 @@ namespace ArcTriggerUI
         #endregion
 
         private readonly IApiService _apiService;
-
+        private double positionSize;
+        private double trigger;
         private string? _currentSecType;
         private string? _currentMonth;
         private string? _currentExchange;
@@ -224,7 +227,7 @@ namespace ArcTriggerUI
                 Slots = new[] { BtnOff1, BtnOff2 },
                 TargetEntry = OffsetEntry
             };
-            
+
             foreach (var s in sections.Values)
             {
                 LoadSection(s);
@@ -543,6 +546,7 @@ namespace ArcTriggerUI
         #region Order Price Mode || Sipariş Fiyat Modu
         private void OnTriggerPriceTextChanged(object sender, TextChangedEventArgs e)
         {
+            QuantityCalculated();
             Console.WriteLine($"Trigger price: {e.NewTextValue}");
         }
         #endregion
@@ -600,9 +604,34 @@ namespace ArcTriggerUI
         #endregion
 
         #region Position Size Text Changed || Pozisyon Boyutu Metin Değişikliği
+
         private void OnPositionTextChanged(object sender, TextChangedEventArgs e)
         {
-            Console.WriteLine($"Position size: {e.NewTextValue}");
+            QuantityCalculated();
+
+        }
+        private void QuantityCalculated()
+        {
+            if (!string.IsNullOrWhiteSpace(TriggerEntry.Text) &&
+    !string.IsNullOrWhiteSpace(PositionEntry.Text))
+            {
+                if (decimal.TryParse(TriggerEntry.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var trigger) &&
+                    decimal.TryParse(PositionEntry.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var position) &&
+                    trigger != 0)
+                {
+                    var quantity = (int)Math.Round(position / trigger, MidpointRounding.AwayFromZero);
+                    lblQuantity.Text = quantity.ToString();
+                }
+                else
+                {
+                    lblQuantity.Text = "0";
+                }
+            }
+            else
+            {
+                lblQuantity.Text = "0";
+            }
+
         }
         #endregion
 
@@ -693,7 +722,7 @@ namespace ArcTriggerUI
                     : AppTheme.Dark;
                 btnDarkMode.IconImageSource = "day_mode.png";
                 btnDarkMode.Text = "Light";
-                
+
 
                 imageDarkandLight = true;
             }
@@ -703,7 +732,7 @@ namespace ArcTriggerUI
 
                 app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
                     ? AppTheme.Light
-                    : AppTheme.Dark; 
+                    : AppTheme.Dark;
                 btnDarkMode.IconImageSource = "night_mode.png";
                 btnDarkMode.Text = "Dark";
                 imageDarkandLight = false;
@@ -1067,6 +1096,7 @@ namespace ArcTriggerUI
         }
 
 
+
         private async void OnCreateOrdersClicked(object sender, EventArgs e)
         {
             try
@@ -1082,9 +1112,10 @@ namespace ArcTriggerUI
 
                 string orderMode = _orderMode;
                 string tif = ExpPicker.SelectedItem.ToString();
-                
+
+
                 // Query string oluştur
-                var url = $"http://192.168.1.107:8000/api/orderUI?" +
+                var url = Configs.BaseUrl + $"/api/orderUI?" +
                           $"oldconid={oldconid}" +
                           $"&conid={conid}" +
                           $"&trigger={trigger.ToString(CultureInfo.InvariantCulture)}" +
@@ -1093,14 +1124,15 @@ namespace ArcTriggerUI
                           $"&positionSize={positionSize.ToString(CultureInfo.InvariantCulture)}" +
                           $"&stopLoss={stopLoss.ToString(CultureInfo.InvariantCulture)}" +
                           $"&tif={tif}";
-                
+
                 // POST request (body null)
                 var response = await _apiService.PostAsync<object, object>(url, null);
-               
+
                 // Response’u JSON string olarak göster
                 var jsonString = JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true });
 
                 await DisplayAlert("API Response", jsonString, "Tamam");
+
 
             }
 
@@ -1108,6 +1140,7 @@ namespace ArcTriggerUI
             {
                 await DisplayAlert("Exception", ex.Message, "Tamam");
             }
+
         }
 
 
@@ -1540,12 +1573,12 @@ namespace ArcTriggerUI
                 {
                     strikes.AddRange(strikesData.Call);
                     strikes.AddRange(strikesData.Put);
-                    
+
                 }
                 _lastStrikes = strikesData ?? new StrikesResponses();
                 RebuildStrikesPicker();
 
-                
+
 
 
 
@@ -1554,7 +1587,7 @@ namespace ArcTriggerUI
             catch (Exception ex)
             {
 
-               
+
             }
         }
         private void RebuildStrikesPicker()
@@ -1562,11 +1595,11 @@ namespace ArcTriggerUI
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 StrikesPicker.Items.Clear();
-                if (_lastStrikes == null) 
+                if (_lastStrikes == null)
                 {
                     ClearMaturityUI();
                     return;
-                 }
+                }
 
                 IEnumerable<decimal> list = _currentRight == "P" ? _lastStrikes.Put : _lastStrikes.Call;
 
@@ -1806,7 +1839,7 @@ namespace ArcTriggerUI
         }
 
 
-       
-    
+
+
     }
 }

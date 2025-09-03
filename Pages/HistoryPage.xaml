@@ -71,9 +71,19 @@
                                        FontSize="14" 
                                        FontAttributes="Bold" 
                                        HorizontalOptions="End"/>
+                                <HorizontalStackLayout Spacing="10" HorizontalOptions="Start">
+                                    <Button Text="Invalidate" BackgroundColor="Red"/>
+                                    <Button Text="Breakeven"  BackgroundColor="Gray" />
+                                </HorizontalStackLayout>
+                               
                             </VerticalStackLayout>
+                            
+
                         </Frame>
+                  
+
                     </DataTemplate>
+                   
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </RefreshView>

@@ -9,13 +9,10 @@
         <!-- WebView üstte tüm kalan alanı kaplasın -->
         <WebView x:Name="MyWebView"
                  Grid.Row="0"
-                 Source="https://192.168.1.117:5000" />
+                 Source="http://40.90.226.14:5000" />
 
         <!-- Butonlar altta sabit -->
-        <StackLayout Grid.Row="1" Orientation="Horizontal" HorizontalOptions="Center" Spacing="10">
-            <Button Text="Go ARC Trigger" />
-           
-        </StackLayout>
+     
 
     </Grid>
 </ContentPage>
