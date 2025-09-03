@@ -54,7 +54,9 @@ namespace ArcTriggerUI
         private string? _currentSecType;
         private string? _currentMonth;
         private string? _currentExchange;
+        private string? _lastConId;
         private string _currentRight = "C"; // Call=C, Put=P
+        private string _orderMode = "MKT"; // DEFAULT MKT
         private StrikesResponses _lastStrikes; // month değiştiğinde gelen set'i tut
 
         // symbols text için: arama sonucu listesi ve debounce/iptal için CTS
@@ -302,12 +304,12 @@ namespace ArcTriggerUI
         // OrderMode (MKT/LMT)
         private void OnOrderModeCheckedChanged(object sender, CheckedChangedEventArgs e)
         {
-            if (e.Value)
-            {
-                var radio = sender as RadioButton;
-                _selectedOrderMode = radio?.Content?.ToString();
-            }
+            if (MktRadioButton.IsChecked)
+                _orderMode = "MKT";
+            else if (LmtRadioButton.IsChecked)
+                _orderMode = "LMT";
         }
+
         void ApplySectionButtons(SectionConfig s)
         {
             for (int i = 0; i < s.Slots.Length && i < s.Selected.Length; i++)
@@ -1069,16 +1071,18 @@ namespace ArcTriggerUI
         {
             try
             {
-                // Sabit değerler (UI’dan bağımsız test)
-                string oldconid = "4815747";
-                string conid = "653225215";
-                double trigger = 230.5;
-                string orderMode = "MKT";
-                double offset = 0.05;
-                double positionSize = 5000;
-                double stopLoss = 2;
-                string tif = "DAY";
+                string oldconid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
+                string conid = _lastConId.ToString(CultureInfo.InvariantCulture);
 
+                // Ondalık değerleri parse ederken InvariantCulture kullan
+                double trigger = double.Parse(TriggerEntry.Text, CultureInfo.InvariantCulture);
+                double offset = double.Parse(OffsetEntry.Text, CultureInfo.InvariantCulture);
+                double positionSize = double.Parse(PositionEntry.Text, CultureInfo.InvariantCulture);
+                double stopLoss = double.Parse(StopLossEntry.Text, CultureInfo.InvariantCulture);
+
+                string orderMode = _orderMode;
+                string tif = ExpPicker.SelectedItem.ToString();
+                
                 // Query string oluştur
                 var url = $"http://192.168.1.107:8000/api/orderUI?" +
                           $"oldconid={oldconid}" +
@@ -1089,15 +1093,17 @@ namespace ArcTriggerUI
                           $"&positionSize={positionSize.ToString(CultureInfo.InvariantCulture)}" +
                           $"&stopLoss={stopLoss.ToString(CultureInfo.InvariantCulture)}" +
                           $"&tif={tif}";
-
+                
                 // POST request (body null)
                 var response = await _apiService.PostAsync<object, object>(url, null);
-
+               
                 // Response’u JSON string olarak göster
                 var jsonString = JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true });
 
                 await DisplayAlert("API Response", jsonString, "Tamam");
+
             }
+
             catch (Exception ex)
             {
                 await DisplayAlert("Exception", ex.Message, "Tamam");
@@ -1629,8 +1635,9 @@ namespace ArcTriggerUI
                     return;
                 }
 
-                // Array içindeki TÜM maturityDate'leri topla; yoksa fallback alanları dene
                 var maturities = new List<string>();
+                var lastConids = new List<string>();
+
                 try
                 {
                     using var doc = JsonDocument.Parse(raw);
@@ -1640,18 +1647,29 @@ namespace ArcTriggerUI
                     {
                         foreach (var item in root.EnumerateArray())
                         {
-                            if (item.ValueKind == JsonValueKind.Object &&
-                                item.TryGetProperty("maturityDate", out var m) &&
-                                m.ValueKind == JsonValueKind.String)
+                            if (item.ValueKind == JsonValueKind.Object)
                             {
-                                var s = m.GetString();
-                                if (!string.IsNullOrWhiteSpace(s))
-                                    maturities.Add(s!);
+                                // maturityDate
+                                if (item.TryGetProperty("maturityDate", out var m) && m.ValueKind == JsonValueKind.String)
+                                {
+                                    var s = m.GetString();
+                                    if (!string.IsNullOrWhiteSpace(s))
+                                        maturities.Add(s!);
+                                }
+
+                                // conid (lastConid)
+                                if (item.TryGetProperty("conid", out var c) &&
+                                    (c.ValueKind == JsonValueKind.Number || c.ValueKind == JsonValueKind.String))
+                                {
+                                    string conidValue = c.ValueKind == JsonValueKind.Number ? c.GetInt64().ToString() : c.GetString()!;
+                                    lastConids.Add(conidValue);
+                                    _lastConId = conidValue;
+                                }
                             }
                         }
                     }
 
-                    // Fallback: tek obje ya da data/quote altından çek
+                    // fallback
                     if (maturities.Count == 0)
                     {
                         string? one = ExtractMaturityAny(root)
@@ -1663,20 +1681,21 @@ namespace ArcTriggerUI
                 }
                 catch
                 {
-                    // JSON değilse: belki düz "20250919"
                     var t = raw.Trim('"');
                     if (!string.IsNullOrWhiteSpace(t)) maturities.Add(t);
                 }
 
                 // normalize + distinct + sıralama
-                var normalized = maturities
+                var normalizedMaturities = maturities
                     .Select(NormalizeMaturityDate)
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .Distinct(StringComparer.Ordinal)
-                    .OrderBy(x => x) // yyyy-MM-dd leksikografik olarak da sıralı
+                    .OrderBy(x => x)
                     .ToList();
 
-                SetMaturityUI(normalized);
+                var normalizedConids = lastConids.Distinct().ToList();
+
+                SetMaturityUI(normalizedMaturities);
             }
             catch
             {
@@ -1728,31 +1747,37 @@ namespace ArcTriggerUI
                     return dt2.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 }
 
-                return t; // en kötü ham hali
+                return t;
             }
 
             void SetMaturityUI(IEnumerable<string> maturities)
             {
-                var list = maturities?.ToList() ?? new List<string>();
+                var matList = maturities?.ToList() ?? new List<string>();
+
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     MaturityDateLabel.Items.Clear();
-                    if (list.Count == 0)
+
+                    if (matList.Count == 0)
                     {
                         MaturityDateLabel.Title = "—";
                         MaturityDateLabel.SelectedIndex = -1;
                     }
                     else
                     {
-                        foreach (var m in list)
+                        foreach (var m in matList)
+                        {
                             MaturityDateLabel.Items.Add(m);
+                        }
 
                         MaturityDateLabel.SelectedIndex = 0;
-                        MaturityDateLabel.Title = list[0];
+                        MaturityDateLabel.Title = matList[0];
                     }
                 });
             }
+
         }
+
         private async void StrikesPicker_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (StrikesPicker.SelectedIndex >= 0)
