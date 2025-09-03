@@ -249,7 +249,7 @@
 
                                 <!-- Dinamik sonuçlar -->
                                 <Picker x:Name="StockPicker"
-                                 Title="Symbol"
+
                                  WidthRequest="220"
                                  SelectedIndexChanged="OnSymbolChanged" />
                             </VerticalStackLayout>
