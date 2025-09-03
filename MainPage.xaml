@@ -249,7 +249,7 @@
 
                                 <!-- Dinamik sonuçlar -->
                                 <Picker x:Name="StockPicker"
-
+                                Title="Sybmol Name"
                                  WidthRequest="220"
                                  SelectedIndexChanged="OnSymbolChanged" />
                             </VerticalStackLayout>
@@ -269,29 +269,29 @@
                             </VerticalStackLayout>
 
                             <!-- SECDEF: SecType -->
-                            <VerticalStackLayout Spacing="2" WidthRequest="150">
+                            <VerticalStackLayout Spacing="2" WidthRequest="100">
                                 <Label Text="SecType" Style="{StaticResource HeaderLabel}" />
                                 <Picker x:Name="SecTypePicker"
                                         Title=""
-                                        WidthRequest="150"
+                                        WidthRequest="100"
                                         SelectedIndexChanged="OnSecTypeChanged" />
                             </VerticalStackLayout>
 
                             <!-- SECDEF: Months -->
-                            <VerticalStackLayout Spacing="2" WidthRequest="150">
+                            <VerticalStackLayout Spacing="2" WidthRequest="120">
                                 <Label Text="Months" Style="{StaticResource HeaderLabel}" />
                                 <Picker x:Name="MonthsPicker"
                                         Title=""
-                                        WidthRequest="150"
+                                        WidthRequest="120"
                                         SelectedIndexChanged="OnMonthChanged" />
                             </VerticalStackLayout>
 
                             <!-- Strike -->
-                            <VerticalStackLayout Spacing="2" Padding="0,0,0,0" WidthRequest="150">
+                            <VerticalStackLayout Spacing="2" Padding="0,0,0,0" WidthRequest="100">
                                 <Label Text="Strike" Style="{StaticResource HeaderLabel}"/>
-                                <Picker x:Name="StrikesPicker"
+                                <Picker x:Name="StrikesPicker" 
         Title=""
-        WidthRequest="150"
+        WidthRequest="100"
         SelectedIndexChanged="StrikesPicker_SelectedIndexChanged"/>
 
                             </VerticalStackLayout>
@@ -341,24 +341,24 @@
                                                  Content="Put"
                                                  TextColor="{DynamicResource PrimaryTextColor}"
                                                  CheckedChanged="OnOrderTypeCheckedChanged"/>
+                               
                                 </HorizontalStackLayout>
+                                    <HorizontalStackLayout>
+                                        <RadioButton x:Name="MktRadioButton" 
+              Content="MKT" 
+              IsChecked="True"
+              TextColor="{DynamicResource PrimaryTextColor}"
+              CheckedChanged="OnOrderModeCheckedChanged"/>
+                                        <RadioButton x:Name="LmtRadioButton" 
+              Content="LMT"
+              TextColor="{DynamicResource PrimaryTextColor}"
+              CheckedChanged="OnOrderModeCheckedChanged"/>
+
+                                    </HorizontalStackLayout>
                             </VerticalStackLayout>
 
                             <!-- Order -->
-                            <VerticalStackLayout Spacing="2" Padding="12,0" WidthRequest="150">
-                                <Label Text="Order" Style="{StaticResource HeaderLabel}" />
-                                <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
-                                    <RadioButton x:Name="MktRadioButton" 
-                                                 Content="MKT" 
-                                                 IsChecked="True"
-                                                 TextColor="{DynamicResource PrimaryTextColor}"
-                                                 CheckedChanged="OnOrderModeCheckedChanged"/>
-                                    <RadioButton x:Name="LmtRadioButton" 
-                                                 Content="LMT"
-                                                 TextColor="{DynamicResource PrimaryTextColor}"
-                                                 CheckedChanged="OnOrderModeCheckedChanged"/>
-                                </HorizontalStackLayout>
-                            </VerticalStackLayout>
+                          
 
                             <!-- Offset -->
                             <VerticalStackLayout Spacing="2" Padding="10,0" WidthRequest="170">
@@ -366,7 +366,7 @@
 
                                 <Entry x:Name="OffsetEntry"
                                        Style="{StaticResource EntryNumericDense}"
-                                       WidthRequest="120"
+                                       WidthRequest="90"
                                        HorizontalTextAlignment="Center"
                                        Placeholder="0.05" Keyboard="Numeric" />
 
@@ -449,7 +449,7 @@
                             <!-- Stop Loss -->
                             <Grid HorizontalOptions="Start" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*" Margin="8,0,0,0" Padding="12,0">
                                 <Label Grid.Row="0" Grid.ColumnSpan="2" Text="Stop Loss ($)" Style="{StaticResource HeaderLabel}" />
-                                <Entry x:Name="StopLossEntry" Grid.Row="1" Grid.Column="0" WidthRequest="140"
+                                <Entry x:Name="StopLossEntry" Grid.Row="1" Grid.Column="0" WidthRequest="90"
                                        Placeholder="130.00" Keyboard="Numeric" TextChanged="OnStopLossTextChanged"
                                        HorizontalOptions="Start" HorizontalTextAlignment="Center"/>
                                 <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4" VerticalOptions="Center">
@@ -498,9 +498,9 @@
                                 </HorizontalStackLayout>
                             </Grid>
 
-                            <VerticalStackLayout Spacing="2" WidthRequest="170" >
+                            <VerticalStackLayout Spacing="2" WidthRequest="100" >
                                 <Label HorizontalTextAlignment="Center">Expiry</Label>
-                                <Picker x:Name="ExpPicker" WidthRequest="170"
+                                <Picker x:Name="ExpPicker" WidthRequest="100"
             SelectedIndexChanged="OnExpirationChanged">
                                     <Picker.Items>
                                         <x:String>GTC</x:String>
