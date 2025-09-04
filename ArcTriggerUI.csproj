@@ -62,8 +62,9 @@
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Maui" Version="12.1.0" />
 		<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.8" />
-		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+		<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.80" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.5" />
+		<PackageReference Include="TWS" Version="1.0.0" />
 	</ItemGroup>
 
 	<ItemGroup>
