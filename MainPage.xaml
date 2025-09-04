@@ -556,8 +556,8 @@ Style="{StaticResource HeaderLabel}" />
                                         <Button Text="Save"
                                                 Style="{StaticResource PrimaryAction}"
                                                 Clicked="OnCreateOrdersClicked"/>
-                                        <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
-                                        <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnGetOrdersClicked"/>
+                                        <!--<Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
+                                        <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnGetOrdersClicked"/>-->
 
                                     </HorizontalStackLayout>
                                     <HorizontalStackLayout Padding="0,10,10,10">
