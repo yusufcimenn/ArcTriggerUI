@@ -17,7 +17,6 @@ using System.Net.Http.Json;
 using System.Resources;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
@@ -166,14 +165,14 @@ namespace ArcTriggerUI
             {
                 if (numberEntry.Text == null)
                 {
-                    var newOrder = new OrderFrame();
+                    var newOrder = new OrderFrame(_apiService);
                     OrdersContainer.Children.Add(newOrder);
                 }
                 else
                 {
                     for (int i = 0; i < start; i++)
                     {
-                        var newOrder = new OrderFrame();
+                        var newOrder = new OrderFrame(_apiService);
                         OrdersContainer.Children.Add(newOrder);
                     }
                 }
@@ -458,13 +457,13 @@ namespace ArcTriggerUI
 
                 for (int i = 0; i < start; i++)
                 {
-                    var newOrder = new OrderFrame();
+                    var newOrder = new OrderFrame(_apiService);
                     OrdersContainer.Children.Add(newOrder);
                 }
             }
             else
             {
-                var newOrder = new OrderFrame();
+                var newOrder = new OrderFrame(_apiService);
                 OrdersContainer.Children.Add(newOrder);
             }
         }
@@ -1115,7 +1114,7 @@ namespace ArcTriggerUI
 
 
                 // Query string oluştur
-                var url = Configs.BaseUrl + $"/api/orderUI?" +
+                var url = Configs.BaseUrl + $"/orderUI?" +
                           $"oldconid={oldconid}" +
                           $"&conid={conid}" +
                           $"&trigger={trigger.ToString(CultureInfo.InvariantCulture)}" +
@@ -1307,6 +1306,7 @@ namespace ArcTriggerUI
             SymbolSuggestions.IsVisible = _symbolResults.Count > 0;
         }
 
+        
         // marketprice için: seçili sembol/conid’e göre fiyatı çek ve UI’a yaz
         private async Task UpdateMarketPriceAsync() // marketprice için
         {
@@ -1332,7 +1332,7 @@ namespace ArcTriggerUI
                     return;
                 }
 
-                // /api/snapshot?symbol={conid or symbol}
+                // /snapshot?symbol={conid or symbol}
                 var url = Configs.BaseUrl.TrimEnd('/') + "/snapshot?symbol=" + Uri.EscapeDataString(symbolParam);
 
                 // debounce/iptal
@@ -1343,57 +1343,111 @@ namespace ArcTriggerUI
                 var response = await _apiService.GetAsync(url);
                 if (token.IsCancellationRequested) return;
 
-                // Backend bazen düz string (ör: "123.45") dönebilir, bazen JSON olabilir.
-                // 1) Düz string sayı ise direkt yaz
                 var raw = (response ?? "").Trim();
+
+                // 1) Düz sayı string’i (örn "123.45")
                 if (decimal.TryParse(raw.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var direct))
                 {
                     MarketPriceLabel.Text = direct.ToString("0.00", CultureInfo.InvariantCulture);
                     return;
                 }
 
-                // 2) JSON parse etmeyi dene ve yaygın anahtarları ara
+                // 2) JSON parse (object veya array)
                 if (raw.StartsWith("{") || raw.StartsWith("["))
                 {
                     using var doc = JsonDocument.Parse(raw);
                     var root = doc.RootElement;
 
-                    string[] priceKeys = { "marketPrice", "last", "lastPrice", "mark", "mid", "close", "price", "p" };
-
-                    if (TryExtractDecimal(root, priceKeys, out var price) ||
-                        (root.TryGetProperty("data", out var dataObj) && TryExtractDecimal(dataObj, priceKeys, out price)) ||
-                        (root.TryGetProperty("quote", out var quoteObj) && TryExtractDecimal(quoteObj, priceKeys, out price)) ||
-                        (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0 && TryExtractDecimal(root[0], priceKeys, out price)))
+                    // --- ÖZEL DİZİ FORMATI: [ <number>, { ... } ] ---
+                    if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
                     {
-                        MarketPriceLabel.Text = price.ToString("0.00", CultureInfo.InvariantCulture);
-                        return;
+                        decimal? arrayPrice = null;
+                        bool? arrayMarketClosed = null;
+
+                        // İlk eleman sayı ise
+                        var first = root[0];
+                        if (first.ValueKind == JsonValueKind.Number && first.TryGetDecimal(out var arrNum))
+                            arrayPrice = arrNum;
+
+                        // İkinci eleman object ise (flag ve/veya last vb burada)
+                        if (root.GetArrayLength() >= 2 && root[1].ValueKind == JsonValueKind.Object)
+                        {
+                            var second = root[1];
+
+                            // market_closed bayrağı
+                            arrayMarketClosed = TryExtractBool(second, "market_closed", "marketClosed", "isMarketClosed");
+
+                            // fiyat anahtarları
+                            string[] priceKeys = { "marketPrice", "last", "lastPrice", "mark", "mid", "close", "price", "p" };
+                            if (TryExtractDecimal(second, priceKeys, out var objPrice))
+                            {
+                                arrayPrice = objPrice;
+                            }
+                            else
+                            {
+                                // bid/ask’tan mid dene
+                                var bid = TryExtractOneOf(second, "bid", "bestBid", "b");
+                                var ask = TryExtractOneOf(second, "ask", "bestAsk", "a");
+                                if (bid.HasValue && ask.HasValue)
+                                    arrayPrice = (bid.Value + ask.Value) / 2m;
+                                else if (bid.HasValue && !ask.HasValue)
+                                    arrayPrice ??= bid.Value; // en azından bid’i göster
+                            }
+                        }
+
+                        if (arrayPrice.HasValue || arrayMarketClosed.HasValue)
+                        {
+                            var suffix = arrayMarketClosed == true ? " (market closed)" : string.Empty;
+                            MarketPriceLabel.Text = arrayPrice.HasValue
+                                ? arrayPrice.Value.ToString("0.00", CultureInfo.InvariantCulture) + suffix
+                                : ("—" + suffix);
+                            return;
+                        }
                     }
 
-                    // Fiyat yoksa bid/ask'tan mid hesaplamayı dene
-                    decimal? bid = TryExtractOneOf(root, "bid", "bestBid", "b");
-                    decimal? ask = TryExtractOneOf(root, "ask", "bestAsk", "a");
+                    // --- Genel durum: object (veya farklı yapı) ---
+                    {
+                        bool marketClosed =
+                            TryExtractBool(root, "market_closed", "marketClosed", "isMarketClosed") ||
+                            (root.TryGetProperty("data", out var dEl) && TryExtractBool(dEl, "market_closed", "marketClosed", "isMarketClosed")) ||
+                            (root.TryGetProperty("quote", out var qEl) && TryExtractBool(qEl, "market_closed", "marketClosed", "isMarketClosed"));
 
-                    if (!bid.HasValue && root.TryGetProperty("data", out var d1))
-                    {
-                        bid ??= TryExtractOneOf(d1, "bid", "bestBid", "b");
-                        ask ??= TryExtractOneOf(d1, "ask", "bestAsk", "a");
-                    }
-                    if (!bid.HasValue && root.TryGetProperty("quote", out var q1))
-                    {
-                        bid ??= TryExtractOneOf(q1, "bid", "bestBid", "b");
-                        ask ??= TryExtractOneOf(q1, "ask", "bestAsk", "a");
-                    }
-                    if (!bid.HasValue && root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
-                    {
-                        bid ??= TryExtractOneOf(root[0], "bid", "bestBid", "b");
-                        ask ??= TryExtractOneOf(root[0], "ask", "bestAsk", "a");
-                    }
+                        string[] priceKeys = { "marketPrice", "last", "lastPrice", "mark", "mid", "close", "price", "p" };
 
-                    if (bid.HasValue && ask.HasValue)
-                    {
-                        var mid = (bid.Value + ask.Value) / 2m;
-                        MarketPriceLabel.Text = mid.ToString("0.00", CultureInfo.InvariantCulture) + " (mid)";
-                        return;
+                        if (TryExtractDecimal(root, priceKeys, out var price) ||
+                            (root.TryGetProperty("data", out var dataObj) && TryExtractDecimal(dataObj, priceKeys, out price)) ||
+                            (root.TryGetProperty("quote", out var quoteObj) && TryExtractDecimal(quoteObj, priceKeys, out price)))
+                        {
+                            MarketPriceLabel.Text = price.ToString("0.00", CultureInfo.InvariantCulture) + (marketClosed ? " (market closed)" : "");
+                            return;
+                        }
+
+                        // Fiyat yoksa bid/ask’tan mid dene
+                        decimal? bid = TryExtractOneOf(root, "bid", "bestBid", "b");
+                        decimal? ask = TryExtractOneOf(root, "ask", "bestAsk", "a");
+
+                        if (!bid.HasValue && root.TryGetProperty("data", out var d1))
+                        {
+                            bid ??= TryExtractOneOf(d1, "bid", "bestBid", "b");
+                            ask ??= TryExtractOneOf(d1, "ask", "bestAsk", "a");
+                        }
+                        if (!bid.HasValue && root.TryGetProperty("quote", out var q1))
+                        {
+                            bid ??= TryExtractOneOf(q1, "bid", "bestBid", "b");
+                            ask ??= TryExtractOneOf(q1, "ask", "bestAsk", "a");
+                        }
+
+                        if (bid.HasValue && ask.HasValue)
+                        {
+                            var mid = (bid.Value + ask.Value) / 2m;
+                            MarketPriceLabel.Text = mid.ToString("0.00", CultureInfo.InvariantCulture) + (marketClosed ? " (market closed)" : "");
+                            return;
+                        }
+                        if (bid.HasValue) // en azından bid göster
+                        {
+                            MarketPriceLabel.Text = bid.Value.ToString("0.00", CultureInfo.InvariantCulture) + (marketClosed ? " (market closed)" : "");
+                            return;
+                        }
                     }
                 }
 
@@ -1421,6 +1475,7 @@ namespace ArcTriggerUI
                 }
                 val = 0m; return false;
             }
+
             static decimal? TryExtractOneOf(JsonElement el, params string[] names)
             {
                 foreach (var n in names)
@@ -1434,6 +1489,30 @@ namespace ArcTriggerUI
                     }
                 }
                 return null;
+            }
+
+            static bool TryExtractBool(JsonElement el, params string[] names)
+            {
+                foreach (var n in names)
+                {
+                    if (el.TryGetProperty(n, out var p))
+                    {
+                        if (p.ValueKind == JsonValueKind.True) return true;
+                        if (p.ValueKind == JsonValueKind.False) return false;
+                        if (p.ValueKind == JsonValueKind.String)
+                        {
+                            var s = p.GetString();
+                            if (bool.TryParse(s, out var b)) return b;
+                            if (string.Equals(s, "1") || string.Equals(s, "yes", StringComparison.OrdinalIgnoreCase)) return true;
+                            if (string.Equals(s, "0") || string.Equals(s, "no", StringComparison.OrdinalIgnoreCase)) return false;
+                        }
+                        if (p.ValueKind == JsonValueKind.Number)
+                        {
+                            if (p.TryGetInt32(out var num)) return num != 0;
+                        }
+                    }
+                }
+                return false;
             }
         }
 
