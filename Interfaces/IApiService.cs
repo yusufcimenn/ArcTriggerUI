@@ -26,8 +26,9 @@ namespace ArcTriggerUI.Interfaces
         Task<InfoResponse> GetInfoAsync(string conid);
         Task<CreateOrderResponse?> CreateOrderAsync(PostOrderItem request);
         Task<OrderResponseDto?> GetOrderByIdAsync(int id);
-
         Task<string> SendOrderAsync(OrderRequest order);
+
+        Task<string> SellOrder(OrderSell orderSell);
 
     }
 }

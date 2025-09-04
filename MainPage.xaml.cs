@@ -182,7 +182,7 @@ namespace ArcTriggerUI
         #endregion
 
         #region Button Sections || Özelleştirilebilir Buton Bölümleri
-        void InitHotSections()
+        public void InitHotSections()
         {
             sections["pos"] = new SectionConfig
             {
@@ -236,7 +236,7 @@ namespace ArcTriggerUI
         #endregion
 
         #region Buton Event Handlers || Buton Olay İşleyicileri
-        void OnHotPresetClicked(object sender, EventArgs e)
+        public void OnHotPresetClicked(object sender, EventArgs e)
         {
             if (sender is not Button b || b.CommandParameter is not string id) return;
             if (!sections.TryGetValue(id, out var s)) return;
@@ -1028,7 +1028,7 @@ namespace ArcTriggerUI
         #endregion
 
         #region Sağ Tık Düzenleme || Right Click Edit
-        private async void OnPresetRightClick(object sender, TappedEventArgs e)
+        public async void OnPresetRightClick(object sender, TappedEventArgs e)
         {
             if (sender is not Button btn) return;
             if (!TryFindSectionAndIndex(btn, out var s, out var slotIndex)) return; // aşağıdaki helper
@@ -1114,7 +1114,7 @@ namespace ArcTriggerUI
 
 
                 // Query string oluştur
-                var url = Configs.BaseUrl + $"/orderUI?" +
+                 var url = Configs.BaseUrl + $"/orderUI?" +
                           $"oldconid={oldconid}" +
                           $"&conid={conid}" +
                           $"&trigger={trigger.ToString(CultureInfo.InvariantCulture)}" +
