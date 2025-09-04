@@ -4,42 +4,27 @@ using ArcTriggerUI.Dtos;
 using ArcTriggerUI.Dtos.Orders;
 using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
-using System.Globalization;
-using System.Resources;
-using System.Text.Json;
-using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
-
+using Microsoft.Maui.Controls;                 // MAUI Controls
+using Microsoft.Maui.ApplicationModel;         // MainThread
+using Microsoft.Maui.Storage;                  // Preferences
+using System;
+using System.Collections.Generic; // SECDEF: listeler için
 // symbols text için
 using System.Collections.ObjectModel;
-using System.Threading;
-using System;
+using System.Globalization;
 using System.Linq;
+using System.Resources;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic; // SECDEF: listeler için
+using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
 
 namespace ArcTriggerUI.Dashboard
 {
     public partial class OrderFrame : ContentView
     {
-        // ==== ContentView içinde Page metodlarý için þimler ====
-        // Ýmzalarý ContentPage ile ayný tuttum ki mevcut çaðrýlar deðiþmeden çalýþsýn.
-        Task<string> DisplayActionSheet(string title, string cancel, string destruction, params string[] buttons)
-            => Application.Current?.MainPage?.DisplayActionSheet(title, cancel, destruction, buttons) ?? Task.FromResult<string>(cancel);
-
-        Task<string> DisplayPromptAsync(string title, string message, string accept = "OK", string cancel = "Cancel",
-                                        string placeholder = null, int maxLength = -1, Keyboard keyboard = null, string initialValue = null)
-            => Application.Current?.MainPage?.DisplayPromptAsync(title, message, accept, cancel, placeholder, maxLength, keyboard, initialValue)
-               ?? Task.FromResult<string>(initialValue ?? "");
-
-        Task DisplayAlert(string title, string message, string cancel)
-            => Application.Current?.MainPage?.DisplayAlert(title, message, cancel) ?? Task.CompletedTask;
-
-        // ContentView’te ToolbarItems yok; ayný isimle proxy veriyorum.
-        public IList<ToolbarItem> ToolbarItems =>
-            (Application.Current?.MainPage as Page)?.ToolbarItems ?? new List<ToolbarItem>();
-
-        // XAML’de varsa baðlanýr; yoksa null-safe kullandým.
-        ToolbarItem btnDarkMode;
+        double xOffset = 0;
+        double yOffset = 0;
 
         #region Section Config || Buton Bölümleri Ayarlarý
         class SectionConfig
@@ -60,7 +45,16 @@ namespace ArcTriggerUI.Dashboard
         private const string PrefKey = "possize.hotbuttons.v1";
         #endregion
 
-        private readonly IApiService? _apiService;
+        private readonly IApiService _apiService;
+        private double positionSize;
+        private double trigger;
+        private string? _currentSecType;
+        private string? _currentMonth;
+        private string? _currentExchange;
+        private string? _lastConId;
+        private string _currentRight = "C"; // Call=C, Put=P
+        private string _orderMode = "MKT"; // DEFAULT MKT
+        private StrikesResponses _lastStrikes; // month deðiþtiðinde gelen set'i tut
 
         // symbols text için: arama sonucu listesi ve debounce/iptal için CTS
         private readonly ObservableCollection<SymbolSearchResponse> _symbolResults = new();
@@ -115,27 +109,38 @@ namespace ArcTriggerUI.Dashboard
             public List<decimal>? call { get; set; }
             public List<decimal>? put { get; set; }
         }
+        private class SecdefInfoResponse
+        {
+            public string? conid { get; set; }
+            public string? desc2 { get; set; }
+            public string? maturityDate { get; set; }
+            public bool? showPrips { get; set; }
+        }
 
-        public OrderFrame()
+        public OrderFrame(IApiService apiService)
         {
             InitializeComponent();
-
-            // IApiService çözümleme (opsiyonel)
-            _apiService = TryResolveApi();
-
             InitHotSections();
-            var saved = Preferences.Get("ui.theme", "Unspecified");
-            if (Enum.TryParse<AppTheme>(saved, out var savedTheme))
-            {
-                Application.Current.UserAppTheme = savedTheme;
-                var item = this.ToolbarItems?.FirstOrDefault();
-                if (item != null)
-                    item.Text = savedTheme == AppTheme.Dark ? "Light" : "Dark";
-            }
+            _apiService = apiService;
 
-            // SymbolSuggestions CollectionView’in ItemsSource’u
-            if (SymbolSuggestions != null)
-                SymbolSuggestions.ItemsSource = _symbolResults;
+            SymbolSuggestions.ItemsSource = _symbolResults;
+            var panGesture = new PanGestureRecognizer();
+            panGesture.PanUpdated += (s, e) =>
+            {
+                if (e.StatusType == GestureStatus.Running)
+                {
+                    // ScrollView’u sürükleme
+                    Scrolls.ScrollToAsync(xOffset - e.TotalX, yOffset - e.TotalY, false);
+                }
+                else if (e.StatusType == GestureStatus.Completed)
+                {
+                    // Son konumu kaydet
+                    xOffset = Scrolls.ScrollX;
+                    yOffset = Scrolls.ScrollY;
+                }
+            };
+
+            ContentGrid.GestureRecognizers.Add(panGesture);
         }
 
         private static IApiService? TryResolveApi()
@@ -147,27 +152,33 @@ namespace ArcTriggerUI.Dashboard
             catch { return null; }
         }
 
-        #region Order Add Section || Sipariþ Ekleme Bölümü
-        private void OnSendClicked(object sender, EventArgs e)
+        // ========= Page-based dialog helpers (ContentView'de Display* yerine) =========
+
+        private Page? HostPage =>
+            Shell.Current?.CurrentPage ??
+            Application.Current?.MainPage ??
+            this.FindParentOfType<Page>();
+
+        private T? FindParentOfType<T>() where T : Element
         {
-            if (int.TryParse(numberEntry?.Text, out int start))
-            {
-                if (numberEntry.Text == null)
-                {
-                    var newOrder = new OrderFrame();
-                    OrdersContainer?.Children.Add(newOrder);
-                }
-                else
-                {
-                    for (int i = 0; i < start; i++)
-                    {
-                        var newOrder = new OrderFrame();
-                        OrdersContainer?.Children.Add(newOrder);
-                    }
-                }
-            }
+            Element? p = this.Parent;
+            while (p != null && p is not T) p = p.Parent;
+            return p as T;
         }
-        #endregion
+
+        private Task ShowAlert(string title, string message, string cancel = "OK")
+            => HostPage?.DisplayAlert(title, message, cancel) ?? Task.CompletedTask;
+
+        private Task<bool> ShowConfirm(string title, string message, string accept = "OK", string cancel = "Cancel")
+            => HostPage?.DisplayAlert(title, message, accept, cancel) ?? Task.FromResult(false);
+
+        private Task<string?> PromptAsync(string title, string message, string accept = "OK", string cancel = "Cancel",
+                                         string? placeholder = null, int maxLength = -1, Keyboard? keyboard = null, string? initialValue = null)
+            => HostPage?.DisplayPromptAsync(title, message, accept, cancel, placeholder, maxLength, keyboard, initialValue)
+               ?? Task.FromResult<string?>(null);
+
+        private Task<string?> ActionSheetAsync(string title, string cancel, string? destruction, params string[] buttons)
+            => HostPage?.DisplayActionSheet(title, cancel, destruction, buttons) ?? Task.FromResult<string?>(null);
 
         #region Button Sections || Özelleþtirilebilir Buton Bölümleri
         void InitHotSections()
@@ -230,8 +241,7 @@ namespace ArcTriggerUI.Dashboard
             if (!sections.TryGetValue(id, out var s)) return;
 
             var valForEntry = ValueForEntry(b.Text, s.Mode);
-            if (s.TargetEntry != null)
-                s.TargetEntry.Text = valForEntry;
+            s.TargetEntry.Text = valForEntry;
         }
         #endregion
 
@@ -252,12 +262,12 @@ namespace ArcTriggerUI.Dashboard
                      : id == "stop" ? "Enter dollars like 0.75"
                      : "Enter percent like 12.5 or 12.5%";
 
-            var choice = await DisplayActionSheet(title, "Cancel", null, options.ToArray());
+            var choice = await ActionSheetAsync(title, "Cancel", null, options.ToArray());
             if (string.IsNullOrWhiteSpace(choice) || choice == "Cancel") return;
 
             if (choice == "Custom...")
             {
-                var input = await DisplayPromptAsync(title, prompt, "OK", "Cancel");
+                var input = await PromptAsync(title, prompt, "OK", "Cancel");
                 if (string.IsNullOrWhiteSpace(input)) return;
                 choice = input.Trim();
             }
@@ -276,27 +286,35 @@ namespace ArcTriggerUI.Dashboard
         // OrderType (Call/Put)
         private void OnOrderTypeCheckedChanged(object sender, CheckedChangedEventArgs e)
         {
-            if (e.Value) // sadece seçilen RadioButton tetiklenir
-            {
-                var radio = sender as RadioButton;
-                _selectedOrderType = radio?.Content?.ToString();
-            }
+            if (!e.Value) return;
+            var radio = sender as RadioButton;
+            _selectedOrderType = radio?.Content?.ToString();
+
+            // right paramý (Call -> C, Put -> P)
+            _currentRight = string.Equals(_selectedOrderType, "Put", StringComparison.OrdinalIgnoreCase) ? "P" : "C";
+            ClearMaturityUI();
+
+            // right deðiþtiðinde strike listesi de right’a göre yeniden kurulsun
+            if (_lastStrikes != null)
+                RebuildStrikesPicker();
+            // strike seçiliyse maturity’yi yeniden çek
+            if (StrikesPicker.SelectedIndex >= 0)
+                _ = LoadMaturityDateForSelectionAsync();
         }
 
         // OrderMode (MKT/LMT)
         private void OnOrderModeCheckedChanged(object sender, CheckedChangedEventArgs e)
         {
-            if (e.Value)
-            {
-                var radio = sender as RadioButton;
-                _selectedOrderMode = radio?.Content?.ToString();
-            }
+            if (MktRadioButton.IsChecked)
+                _orderMode = "MKT";
+            else if (LmtRadioButton.IsChecked)
+                _orderMode = "LMT";
         }
+
         void ApplySectionButtons(SectionConfig s)
         {
             for (int i = 0; i < s.Slots.Length && i < s.Selected.Length; i++)
-                if (s.Slots[i] != null)
-                    s.Slots[i].Text = DisplayForButton(s.Selected[i], s.Mode);
+                s.Slots[i].Text = DisplayForButton(s.Selected[i], s.Mode);
         }
 
         void SaveSection(SectionConfig s)
@@ -354,6 +372,8 @@ namespace ArcTriggerUI.Dashboard
             }
             return t;
         }
+
+
         #endregion
 
         #region Buton Deðer Yardýmcý Metotlarý || Button Value Helper Methods
@@ -407,9 +427,13 @@ namespace ArcTriggerUI.Dashboard
             }
             return "";
         }
+
+
         #endregion
 
+
         #region Number Entry Text Changed || Sayý Giriþi Metin Deðiþikliði
+
         private void OnNumberEntryTextChanged(object sender, TextChangedEventArgs e)
         {
             if (string.IsNullOrEmpty(e.NewTextValue))
@@ -420,25 +444,6 @@ namespace ArcTriggerUI.Dashboard
             {
                 // Geçersizse eski deðeri geri yükle
                 ((Entry)sender).Text = e.OldTextValue;
-            }
-        }
-        #endregion
-
-        #region Order Add Button || Sipariþ Ekleme Butonu
-        private void OnAddOrderClicked(object sender, EventArgs e)
-        {
-            if (int.TryParse(numberEntry?.Text, out int start))
-            {
-                for (int i = 0; i < start; i++)
-                {
-                    var newOrder = new OrderFrame();
-                    OrdersContainer?.Children.Add(newOrder);
-                }
-            }
-            else
-            {
-                var newOrder = new OrderFrame();
-                OrdersContainer?.Children.Add(newOrder);
             }
         }
         #endregion
@@ -518,6 +523,7 @@ namespace ArcTriggerUI.Dashboard
         #region Order Price Mode || Sipariþ Fiyat Modu
         private void OnTriggerPriceTextChanged(object sender, TextChangedEventArgs e)
         {
+            QuantityCalculated();
             Console.WriteLine($"Trigger price: {e.NewTextValue}");
         }
         #endregion
@@ -575,11 +581,37 @@ namespace ArcTriggerUI.Dashboard
         #endregion
 
         #region Position Size Text Changed || Pozisyon Boyutu Metin Deðiþikliði
+
         private void OnPositionTextChanged(object sender, TextChangedEventArgs e)
         {
-            Console.WriteLine($"Position size: {e.NewTextValue}");
+            QuantityCalculated();
+
+        }
+        private void QuantityCalculated()
+        {
+            if (!string.IsNullOrWhiteSpace(TriggerEntry.Text) &&
+    !string.IsNullOrWhiteSpace(PositionEntry.Text))
+            {
+                if (decimal.TryParse(TriggerEntry.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var trigger) &&
+                    decimal.TryParse(PositionEntry.Text, NumberStyles.Any, CultureInfo.InvariantCulture, out var position) &&
+                    trigger != 0)
+                {
+                    var quantity = (int)Math.Round(position / trigger, MidpointRounding.AwayFromZero);
+                    lblQuantity.Text = quantity.ToString();
+                }
+                else
+                {
+                    lblQuantity.Text = "0";
+                }
+            }
+            else
+            {
+                lblQuantity.Text = "0";
+            }
+
         }
         #endregion
+
 
         #region Stop Loss Text Changed || Stop Loss Metin Deðiþikliði
         private void OnStopLossTextChanged(object sender, TextChangedEventArgs e)
@@ -597,6 +629,8 @@ namespace ArcTriggerUI.Dashboard
             }
         }
         #endregion
+
+
 
         #region Profit Text Changed || Kar Metin Deðiþikliði
         private void OnProfitPresetClicked(object sender, EventArgs e)
@@ -646,87 +680,45 @@ namespace ArcTriggerUI.Dashboard
         #region Order Temizleme || Order Clearing
         private void OnClearOrdersClicked(object sender, EventArgs e)
         {
-            OrdersContainer?.Children.Clear();
+            OrdersContainer.Children.Clear();
         }
+
         #endregion
-
-        #region Dark Mode || Karanlýk Mod
-        private bool imageDarkandLight = false;
-        private void OnToggleThemeClicked(object sender, EventArgs e)
-        {
-            var app = Application.Current;
-
-            if (imageDarkandLight == false)
-            {
-                if (app is null) return;
-
-                app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
-                    ? AppTheme.Light
-                    : AppTheme.Dark;
-                if (btnDarkMode != null)
-                {
-                    btnDarkMode.IconImageSource = "lightt.png";
-                    btnDarkMode.Text = "Light";
-                }
-
-                imageDarkandLight = true;
-            }
-            else
-            {
-                if (app is null) return;
-
-                app.UserAppTheme = app.UserAppTheme == AppTheme.Dark
-                    ? AppTheme.Light
-                    : AppTheme.Dark;
-
-                if (btnDarkMode != null)
-                {
-                    btnDarkMode.IconImageSource = "theme_toggle.png";
-                    btnDarkMode.Text = "Dark";
-                }
-            }
-        }
-        #endregion
-
         #region Api Request || Api Ýstek 
         private async void OnGetTickleClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
 
             try
             {
                 string url = Configs.BaseUrl + "/tickle";
                 string result = await _apiService.GetAsync(url);
-                await DisplayAlert("Auto Call", $"API Response: {result}", "OK");
+                await ShowAlert("Auto Call", $"API Response: {result}", "OK");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
+
         }
 
         private async void OnGetStatusClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
                 string url = Configs.BaseUrl + "/status";
                 string result = await _apiService.GetAsync(url);
-                await DisplayAlert("Auto Call", $"API Response: {result}", "OK");
+                await ShowAlert("Auto Call", $"API Response: {result}", "OK");
 
             }
             catch (Exception ex)
             {
 
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
         }
 
         private async void OnPostSymbolClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
                 string url = Configs.BaseUrl + "/getSymbol";
@@ -744,28 +736,27 @@ namespace ArcTriggerUI.Dashboard
                 var first = result.FirstOrDefault();
                 if (first != null)
                 {
-                    await DisplayAlert("Success",
+                    await ShowAlert("Success",
                         $"Symbol: {first.symbol}, Name: {first.name}, SecType: {first.secType}", "OK");
                 }
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
         }
 
+
         private async void OnDeleteOrderClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             int symbolId = 265598; // veya kullanýcýdan alabilirsiniz
 
-            bool confirm = await (Application.Current?.MainPage?.DisplayAlert(
+            bool confirm = await ShowConfirm(
                 "Delete Confirmation",
                 $"Are you sure you want to delete order '{symbolId}'?",
                 "OK",
                 "Cancel"
-            ) ?? Task.FromResult(false));
+            );
 
             if (!confirm)
                 return;
@@ -775,33 +766,29 @@ namespace ArcTriggerUI.Dashboard
                 string url = Configs.BaseUrl + "/orders/";
                 await _apiService.DeleteAsync(url, symbolId);
 
-                await DisplayAlert("Success", $"Symbol '{symbolId}' deleted successfully!", "OK");
+                await ShowAlert("Success", $"Symbol '{symbolId}' deleted successfully!", "OK");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
         }
 
         private async void OnSecdefStrikeClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
                 string result = await _apiService.GetSecDefStrikeAsync("46639520", "ASDA", "STK");
-                await DisplayAlert("Success", $"API Response: {result}", "OK");
+                await ShowAlert("Success", $"API Response: {result}", "OK");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
         }
 
         private async void OngGetSecdef(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
                 var response = await _apiService.GetSecDefAsync("46639520");
@@ -810,41 +797,38 @@ namespace ArcTriggerUI.Dashboard
                 {
                     var first = response.secdef[0];
                     string msg = $"Name: {first.name}\nTicker: {first.ticker}\nCurrency: {first.currency}\nHasOptions: {first.hasOptions}";
-                    await DisplayAlert("SecDef Item", msg, "OK");
+                    await ShowAlert("SecDef Item", msg, "OK");
                 }
                 else
                 {
-                    await DisplayAlert("SecDef", "Hiç kayýt yok.", "OK");
+                    await ShowAlert("SecDef", "Hiç kayýt yok.", "OK");
                 }
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
         }
 
         private async void OnGetInfoClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
                 var info = await _apiService.GetInfoAsync("46639520");
-                await DisplayAlert("Info",
+                await ShowAlert("Info",
                     $"Conid: {info.conid}\nTicker: {info.ticker}\nCompany: {info.companyName}\nCurrency: {info.currency}",
                     "OK");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
         }
+
 
         // Örnek buton click event
         private async void OnGetPortfolioClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
                 // ApiService instance'ýný kullan
@@ -862,23 +846,21 @@ namespace ArcTriggerUI.Dashboard
                         $"Currency: {firstItem.currency}\n" +
                         $"Type: {firstItem.type}";
 
-                    await DisplayAlert("Portfolio Item", message, "OK");
+                    await ShowAlert("Portfolio Item", message, "OK");
                 }
                 else
                 {
-                    await DisplayAlert("Portfolio", "Hiç kayýt bulunamadý.", "OK");
+                    await ShowAlert("Portfolio", "Hiç kayýt bulunamadý.", "OK");
                 }
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
         }
 
         private async void LoadOrders(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
                 string url = Configs.BaseUrl + "/orders";
@@ -906,18 +888,16 @@ namespace ArcTriggerUI.Dashboard
                                      $"Quantity: {totalSize}";
                 }
                 string alertMessage = "Baþarýlý";
-                await DisplayAlert("Order Info", alertMessage, "OK");
+                await ShowAlert("Order Info", alertMessage, "OK");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
         }
 
         private async void OnPostOrderClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
                 var request = new PostOrderItem
@@ -934,7 +914,7 @@ namespace ArcTriggerUI.Dashboard
 
                 if (result != null)
                 {
-                    await DisplayAlert("Success",
+                    await ShowAlert("Success",
                         $"Order ID: {result.OrderId ?? "(null)"}\n" +
                         $"Status: {result.OrderStatus ?? "(null)"}\n" +
                         $"Encrypt: {result.EncryptMessage ?? "(null)"}",
@@ -942,20 +922,18 @@ namespace ArcTriggerUI.Dashboard
                 }
                 else
                 {
-                    await DisplayAlert("Info", "No order returned from API.", "OK");
+                    await ShowAlert("Info", "No order returned from API.", "OK");
                 }
             }
             catch (Exception ex)
             {
                 // API hatasý veya network hatasý buraya gelir
-                await DisplayAlert("Error", ex.Message, "OK");
+                await ShowAlert("Error", ex.Message, "OK");
             }
         }
 
         private async void OnGetOrdersClicked(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
                 int orderId = 760072067; // Örnek order ID
@@ -963,13 +941,13 @@ namespace ArcTriggerUI.Dashboard
 
                 if (order == null)
                 {
-                    await DisplayAlert("Hata", "Servisten veri gelmedi veya hata oluþtu.", "Tamam");
+                    await ShowAlert("Hata", "Servisten veri gelmedi veya hata oluþtu.", "Tamam");
                     return;
                 }
 
                 if (!order.Bulunan)
                 {
-                    await DisplayAlert("Bilgi", "Order bulunamadý.", "Tamam");
+                    await ShowAlert("Bilgi", "Order bulunamadý.", "Tamam");
                     return;
                 }
 
@@ -981,11 +959,11 @@ namespace ArcTriggerUI.Dashboard
                     $"Fiyat: {order.Order?.Price}\n" +
                     $"Durum: {order.Order?.Status}";
 
-                await DisplayAlert("Order Detaylarý", message, "Tamam");
+                await ShowAlert("Order Detaylarý", message, "Tamam");
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Hata", $"Order çekilirken bir hata oluþtu: {ex.Message}", "Tamam");
+                await ShowAlert("Hata", $"Order çekilirken bir hata oluþtu: {ex.Message}", "Tamam");
             }
         }
 
@@ -1001,7 +979,7 @@ namespace ArcTriggerUI.Dashboard
             string old = btn.Text?.Trim() ?? "";
             old = old.Replace("$", "").Replace("%", "").Trim().Replace(',', '.');
 
-            string input = await DisplayPromptAsync(
+            string? input = await PromptAsync(
                 "Edit Preset",
                 s.Mode switch
                 {
@@ -1017,7 +995,7 @@ namespace ArcTriggerUI.Dashboard
             if (string.IsNullOrWhiteSpace(input)) return;
 
             // 1) Normalizasyon (K, %, $ vb.)
-            var normalized = NormalizeForMode(input, s.Mode);
+            var normalized = NormalizeForMode(input!, s.Mode);
 
             // 2) Seçili slotu güncelle + kaydet + butonlarý yenile
             s.Selected[slotIndex] = normalized;
@@ -1026,9 +1004,9 @@ namespace ArcTriggerUI.Dashboard
 
             // 3) Ýlgili Entry'ye ham deðeri yaz (7500 gibi)
             var displayText = DisplayForButton(normalized, s.Mode);
-            if (s.TargetEntry != null)
-                s.TargetEntry.Text = ValueForEntry(displayText, s.Mode);
+            s.TargetEntry.Text = ValueForEntry(displayText, s.Mode);
         }
+
         #endregion
 
         #region Parse & Format Helpers || Ayrýþtýrma ve Biçimlendirme Yardýmcýlarý
@@ -1058,24 +1036,57 @@ namespace ArcTriggerUI.Dashboard
             return true;
         }
 
+
+
         private async void OnCreateOrdersClicked(object sender, EventArgs e)
         {
-            var order = new OrderRequest
+            try
             {
-                Conid = "265598",
-                Trigger = 229.15,
-                OrderMode = "LMT",
-                Offset = 0.05,
-                PositionSize = 10,
-                StopLoss = 225,
-                Tif = "DAY",
-                ProfitTaking = 240
-            };
+                string oldconid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
+                string conid = _lastConId.ToString(CultureInfo.InvariantCulture);
 
-            var result = await _apiService.SendOrderAsync(order);
-            await DisplayAlert("Order Result", result, "OK");
+                // Ondalýk deðerleri parse ederken InvariantCulture kullan
+                double trigger = double.Parse(TriggerEntry.Text, CultureInfo.InvariantCulture);
+                double offset = double.Parse(OffsetEntry.Text, CultureInfo.InvariantCulture);
+                double positionSize = double.Parse(PositionEntry.Text, CultureInfo.InvariantCulture);
+                double stopLoss = double.Parse(StopLossEntry.Text, CultureInfo.InvariantCulture);
+
+                string orderMode = _orderMode;
+                string tif = ExpPicker.SelectedItem.ToString();
+
+
+                // Query string oluþtur
+                var url = Configs.BaseUrl + $"/orderUI?" +
+                          $"oldconid={oldconid}" +
+                          $"&conid={conid}" +
+                          $"&trigger={trigger.ToString(CultureInfo.InvariantCulture)}" +
+                          $"&orderMode={orderMode}" +
+                          $"&offset={offset.ToString(CultureInfo.InvariantCulture)}" +
+                          $"&positionSize={positionSize.ToString(CultureInfo.InvariantCulture)}" +
+                          $"&stopLoss={stopLoss.ToString(CultureInfo.InvariantCulture)}" +
+                          $"&tif={tif}";
+
+                // POST request (body null)
+                var response = await _apiService.PostAsync<object, object>(url, null);
+
+                // Response’u JSON string olarak göster
+                var jsonString = JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true });
+
+                await ShowAlert("API Response", jsonString, "Tamam");
+
+
+            }
+
+            catch (Exception ex)
+            {
+                await ShowAlert("Exception", ex.Message, "Tamam");
+            }
+
         }
+
+
         #endregion
+
 
         // =======================
         // symbols text için: Arama Entry’si & Öneri CollectionView handler’larý
@@ -1093,7 +1104,7 @@ namespace ArcTriggerUI.Dashboard
                 {
                     _symbolCts?.Cancel();
                     _symbolResults.Clear();
-                    if (SymbolSuggestions != null) SymbolSuggestions.IsVisible = false;
+                    SymbolSuggestions.IsVisible = false;
                     return;
                 }
 
@@ -1115,7 +1126,7 @@ namespace ArcTriggerUI.Dashboard
             {
                 System.Diagnostics.Debug.WriteLine("Symbol search error: " + ex.Message);
                 _symbolResults.Clear();
-                if (SymbolSuggestions != null) SymbolSuggestions.IsVisible = false;
+                SymbolSuggestions.IsVisible = false;
             }
         }
 
@@ -1127,16 +1138,12 @@ namespace ArcTriggerUI.Dashboard
                 if (e.CurrentSelection?.FirstOrDefault() is SymbolSearchResponse sel)
                 {
                     // Entry’ye seçilen sembolü yaz
-                    if (SymbolSearchEntry != null)
-                        SymbolSearchEntry.Text = sel.symbol;
+                    SymbolSearchEntry.Text = sel.symbol;
 
                     // StockPicker’ý seçime göre güncelle
-                    if (StockPicker != null)
-                    {
-                        StockPicker.Items.Clear();
-                        StockPicker.Items.Add(sel.symbol);
-                        StockPicker.SelectedIndex = 0;
-                    }
+                    StockPicker.Items.Clear();
+                    StockPicker.Items.Add(sel.symbol);
+                    StockPicker.SelectedIndex = 0;
 
                     // conid’i doðrudan seçilen objeden al; yoksa sözlükten dene
                     if (sel.conid.HasValue)
@@ -1147,11 +1154,8 @@ namespace ArcTriggerUI.Dashboard
                         _selectedConid = null;
 
                     // öneri listesini gizle
-                    if (SymbolSuggestions != null)
-                    {
-                        SymbolSuggestions.IsVisible = false;
-                        SymbolSuggestions.SelectedItem = null;
-                    }
+                    SymbolSuggestions.IsVisible = false;
+                    SymbolSuggestions.SelectedItem = null;
 
                     // marketprice için: seçimden sonra fiyatý güncelle
                     _ = UpdateMarketPriceAsync(); // marketprice için
@@ -1166,8 +1170,6 @@ namespace ArcTriggerUI.Dashboard
         // symbols text için: API’den öneri çekme + conid + companyHeader yakalama
         private async Task FetchAndBindSymbolSuggestionsAsync(string query, CancellationToken token)
         {
-            if (_apiService is null) return;
-
             // API: /getSymbol -> request body: ResultSymbols { symbol, name(bool), secType }
             var url = Configs.BaseUrl + "/getSymbol";
             var request = new ResultSymbols
@@ -1243,15 +1245,12 @@ namespace ArcTriggerUI.Dashboard
             foreach (var it in list.Take(200)) // güvenli sýnýr
                 _symbolResults.Add(it);
 
-            if (SymbolSuggestions != null)
-                SymbolSuggestions.IsVisible = _symbolResults.Count > 0;
+            SymbolSuggestions.IsVisible = _symbolResults.Count > 0;
         }
 
         // marketprice için: seçili sembol/conid’e göre fiyatý çek ve UI’a yaz
         private async Task UpdateMarketPriceAsync() // marketprice için
         {
-            if (_apiService is null) { if (MarketPriceLabel != null) MarketPriceLabel.Text = "N/A"; return; }
-
             try
             {
                 // Öncelik: conid varsa onu kullan, yoksa sembol string’i kullan
@@ -1270,11 +1269,11 @@ namespace ArcTriggerUI.Dashboard
 
                 if (string.IsNullOrWhiteSpace(symbolParam))
                 {
-                    if (MarketPriceLabel != null) MarketPriceLabel.Text = "—";
+                    MarketPriceLabel.Text = "—";
                     return;
                 }
 
-                // /api/snapshot?symbol={conid or symbol}
+                // /snapshot?symbol={conid or symbol}
                 var url = Configs.BaseUrl.TrimEnd('/') + "/snapshot?symbol=" + Uri.EscapeDataString(symbolParam);
 
                 // debounce/iptal
@@ -1285,66 +1284,120 @@ namespace ArcTriggerUI.Dashboard
                 var response = await _apiService.GetAsync(url);
                 if (token.IsCancellationRequested) return;
 
-                // Backend bazen düz string (ör: "123.45") dönebilir, bazen JSON olabilir.
-                // 1) Düz string sayý ise direkt yaz
                 var raw = (response ?? "").Trim();
+
+                // 1) Düz sayý string’i (örn "123.45")
                 if (decimal.TryParse(raw.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var direct))
                 {
-                    if (MarketPriceLabel != null) MarketPriceLabel.Text = direct.ToString("0.00", CultureInfo.InvariantCulture);
+                    MarketPriceLabel.Text = direct.ToString("0.00", CultureInfo.InvariantCulture);
                     return;
                 }
 
-                // 2) JSON parse etmeyi dene ve yaygýn anahtarlarý ara
+                // 2) JSON parse (object veya array)
                 if (raw.StartsWith("{") || raw.StartsWith("["))
                 {
                     using var doc = JsonDocument.Parse(raw);
                     var root = doc.RootElement;
 
-                    string[] priceKeys = { "marketPrice", "last", "lastPrice", "mark", "mid", "close", "price", "p" };
-
-                    if (TryExtractDecimal(root, priceKeys, out var price) ||
-                        (root.TryGetProperty("data", out var dataObj) && TryExtractDecimal(dataObj, priceKeys, out price)) ||
-                        (root.TryGetProperty("quote", out var quoteObj) && TryExtractDecimal(quoteObj, priceKeys, out price)) ||
-                        (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0 && TryExtractDecimal(root[0], priceKeys, out price)))
+                    // --- ÖZEL DÝZÝ FORMATI: [ <number>, { ... } ] ---
+                    if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
                     {
-                        if (MarketPriceLabel != null) MarketPriceLabel.Text = price.ToString("0.00", CultureInfo.InvariantCulture);
-                        return;
+                        decimal? arrayPrice = null;
+                        bool? arrayMarketClosed = null;
+
+                        // Ýlk eleman sayý ise
+                        var first = root[0];
+                        if (first.ValueKind == JsonValueKind.Number && first.TryGetDecimal(out var arrNum))
+                            arrayPrice = arrNum;
+
+                        // Ýkinci eleman object ise (flag ve/veya last vb burada)
+                        if (root.GetArrayLength() >= 2 && root[1].ValueKind == JsonValueKind.Object)
+                        {
+                            var second = root[1];
+
+                            // market_closed bayraðý
+                            arrayMarketClosed = TryExtractBool(second, "market_closed", "marketClosed", "isMarketClosed");
+
+                            // fiyat anahtarlarý
+                            string[] priceKeys = { "marketPrice", "last", "lastPrice", "mark", "mid", "close", "price", "p" };
+                            if (TryExtractDecimal(second, priceKeys, out var objPrice))
+                            {
+                                arrayPrice = objPrice;
+                            }
+                            else
+                            {
+                                // bid/ask’tan mid dene
+                                var bid = TryExtractOneOf(second, "bid", "bestBid", "b");
+                                var ask = TryExtractOneOf(second, "ask", "bestAsk", "a");
+                                if (bid.HasValue && ask.HasValue)
+                                    arrayPrice = (bid.Value + ask.Value) / 2m;
+                                else if (bid.HasValue && !ask.HasValue)
+                                    arrayPrice ??= bid.Value; // en azýndan bid’i göster
+                            }
+                        }
+
+                        if (arrayPrice.HasValue || arrayMarketClosed.HasValue)
+                        {
+                            var suffix = arrayMarketClosed == true ? " (market closed)" : string.Empty;
+                            MarketPriceLabel.Text = arrayPrice.HasValue
+                                ? arrayPrice.Value.ToString("0.00", CultureInfo.InvariantCulture) + suffix
+                                : ("—" + suffix);
+                            return;
+                        }
                     }
 
-                    // Fiyat yoksa bid/ask'tan mid hesaplamayý dene
-                    decimal? bid = TryExtractOneOf(root, "bid", "bestBid", "b");
-                    decimal? ask = TryExtractOneOf(root, "ask", "bestAsk", "a");
+                    // --- Genel durum: object (veya farklý yapý) ---
+                    {
+                        bool marketClosed =
+                            TryExtractBool(root, "market_closed", "marketClosed", "isMarketClosed") ||
+                            (root.TryGetProperty("data", out var dEl) && TryExtractBool(dEl, "market_closed", "marketClosed", "isMarketClosed")) ||
+                            (root.TryGetProperty("quote", out var qEl) && TryExtractBool(qEl, "market_closed", "marketClosed", "isMarketClosed"));
 
-                    if (!bid.HasValue && root.TryGetProperty("data", out var d1))
-                    {
-                        bid ??= TryExtractOneOf(d1, "bid", "bestBid", "b");
-                        ask ??= TryExtractOneOf(d1, "ask", "bestAsk", "a");
-                    }
-                    if (!bid.HasValue && root.TryGetProperty("quote", out var q1))
-                    {
-                        bid ??= TryExtractOneOf(q1, "bid", "bestBid", "b");
-                        ask ??= TryExtractOneOf(q1, "ask", "bestAsk", "a");
-                    }
-                    if (!bid.HasValue && root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
-                    {
-                        bid ??= TryExtractOneOf(root[0], "bid", "bestBid", "b");
-                        ask ??= TryExtractOneOf(root[0], "ask", "bestAsk", "a");
-                    }
+                        string[] priceKeys = { "marketPrice", "last", "lastPrice", "mark", "mid", "close", "price", "p" };
 
-                    if (bid.HasValue && ask.HasValue)
-                    {
-                        var mid = (bid.Value + ask.Value) / 2m;
-                        if (MarketPriceLabel != null) MarketPriceLabel.Text = mid.ToString("0.00", CultureInfo.InvariantCulture) + " (mid)";
-                        return;
+                        if (TryExtractDecimal(root, priceKeys, out var price) ||
+                            (root.TryGetProperty("data", out var dataObj) && TryExtractDecimal(dataObj, priceKeys, out price)) ||
+                            (root.TryGetProperty("quote", out var quoteObj) && TryExtractDecimal(quoteObj, priceKeys, out price)))
+                        {
+                            MarketPriceLabel.Text = price.ToString("0.00", CultureInfo.InvariantCulture) + (marketClosed ? " (market closed)" : "");
+                            return;
+                        }
+
+                        // Fiyat yoksa bid/ask’tan mid dene
+                        decimal? bid = TryExtractOneOf(root, "bid", "bestBid", "b");
+                        decimal? ask = TryExtractOneOf(root, "ask", "bestAsk", "a");
+
+                        if (!bid.HasValue && root.TryGetProperty("data", out var d1))
+                        {
+                            bid ??= TryExtractOneOf(d1, "bid", "bestBid", "b");
+                            ask ??= TryExtractOneOf(d1, "ask", "bestAsk", "a");
+                        }
+                        if (!bid.HasValue && root.TryGetProperty("quote", out var q1))
+                        {
+                            bid ??= TryExtractOneOf(q1, "bid", "bestBid", "b");
+                            ask ??= TryExtractOneOf(q1, "ask", "bestAsk", "a");
+                        }
+
+                        if (bid.HasValue && ask.HasValue)
+                        {
+                            var mid = (bid.Value + ask.Value) / 2m;
+                            MarketPriceLabel.Text = mid.ToString("0.00", CultureInfo.InvariantCulture) + (marketClosed ? " (market closed)" : "");
+                            return;
+                        }
+                        if (bid.HasValue) // en azýndan bid göster
+                        {
+                            MarketPriceLabel.Text = bid.Value.ToString("0.00", CultureInfo.InvariantCulture) + (marketClosed ? " (market closed)" : "");
+                            return;
+                        }
                     }
                 }
 
                 // Hiçbiri olmadýysa
-                if (MarketPriceLabel != null) MarketPriceLabel.Text = "N/A (snapshot price yok)";
+                MarketPriceLabel.Text = "N/A (snapshot price yok)";
             }
             catch
             {
-                if (MarketPriceLabel != null) MarketPriceLabel.Text = "N/A";
+                MarketPriceLabel.Text = "N/A";
             }
 
             // ---- helpers (marketprice için) ----
@@ -1363,6 +1416,7 @@ namespace ArcTriggerUI.Dashboard
                 }
                 val = 0m; return false;
             }
+
             static decimal? TryExtractOneOf(JsonElement el, params string[] names)
             {
                 foreach (var n in names)
@@ -1377,6 +1431,30 @@ namespace ArcTriggerUI.Dashboard
                 }
                 return null;
             }
+
+            static bool TryExtractBool(JsonElement el, params string[] names)
+            {
+                foreach (var n in names)
+                {
+                    if (el.TryGetProperty(n, out var p))
+                    {
+                        if (p.ValueKind == JsonValueKind.True) return true;
+                        if (p.ValueKind == JsonValueKind.False) return false;
+                        if (p.ValueKind == JsonValueKind.String)
+                        {
+                            var s = p.GetString();
+                            if (bool.TryParse(s, out var b)) return b;
+                            if (string.Equals(s, "1") || string.Equals(s, "yes", StringComparison.OrdinalIgnoreCase)) return true;
+                            if (string.Equals(s, "0") || string.Equals(s, "no", StringComparison.OrdinalIgnoreCase)) return false;
+                        }
+                        if (p.ValueKind == JsonValueKind.Number)
+                        {
+                            if (p.TryGetInt32(out var num)) return num != 0;
+                        }
+                    }
+                }
+                return false;
+            }
         }
 
         // ===========================
@@ -1384,8 +1462,6 @@ namespace ArcTriggerUI.Dashboard
         // ===========================
         private async Task LoadSecTypesForCurrentAsync()
         {
-            if (_apiService is null) return;
-
             try
             {
                 if (!_selectedConid.HasValue) return;
@@ -1403,21 +1479,21 @@ namespace ArcTriggerUI.Dashboard
 
                 _secdefSecTypes = (resp?.secTypes ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
-                SecTypePicker?.Items.Clear();
+                SecTypePicker.Items.Clear();
                 foreach (var st in _secdefSecTypes)
-                    SecTypePicker?.Items.Add(st);
+                    SecTypePicker.Items.Add(st);
 
-                if (_secdefSecTypes.Count > 0 && SecTypePicker != null)
+                if (_secdefSecTypes.Count > 0)
                     SecTypePicker.SelectedIndex = 0;
 
-                MonthsPicker?.Items.Clear();
+                MonthsPicker.Items.Clear();
                 _secdefMonths.Clear();
                 _secdefExchanges.Clear();
             }
             catch
             {
-                SecTypePicker?.Items.Clear();
-                MonthsPicker?.Items.Clear();
+                SecTypePicker.Items.Clear();
+                MonthsPicker.Items.Clear();
                 _secdefSecTypes.Clear();
                 _secdefMonths.Clear();
                 _secdefExchanges.Clear();
@@ -1430,15 +1506,14 @@ namespace ArcTriggerUI.Dashboard
         // XAML -> SecTypePicker.SelectedIndexChanged="OnSecTypeChanged"
         private async void OnSecTypeChanged(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
-                if (SecTypePicker == null || SecTypePicker.SelectedIndex < 0) return;
+                if (SecTypePicker.SelectedIndex < 0) return;
                 if (!_selectedConid.HasValue) return;
 
                 var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
                 SecTypePicker.Title = secType;
+                _currentSecType = secType;
 
                 var symbolText = StockPicker?.SelectedIndex >= 0
                     ? StockPicker.Items[StockPicker.SelectedIndex]
@@ -1454,19 +1529,30 @@ namespace ArcTriggerUI.Dashboard
                 _secdefMonths = (resp?.months ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                 _secdefExchanges = (resp?.exchanges ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
-                MonthsPicker?.Items.Clear();
+                MonthsPicker.Items.Clear();
                 foreach (var m in _secdefMonths)
-                    MonthsPicker?.Items.Add(m);
+                    MonthsPicker.Items.Add(m);
 
-                if (_secdefMonths.Count > 0 && MonthsPicker != null)
+                if (_secdefMonths.Count > 0)
                     MonthsPicker.SelectedIndex = 0;
+
+
             }
             catch
             {
-                MonthsPicker?.Items.Clear();
+                MonthsPicker.Items.Clear();
                 _secdefMonths.Clear();
                 _secdefExchanges.Clear();
+
             }
+            _currentExchange = PickBestExchange(_secdefExchanges);
+        }
+        private string PickBestExchange(List<string> exchanges)
+        {
+            if (exchanges == null || exchanges.Count == 0) return string.Empty;
+            var prios = new[] { "SMART", "GLOBEX", "CBOE", "ISE", "ARCA", "BOX", "NYSE" };
+            var best = exchanges.FirstOrDefault(x => prios.Contains(x?.ToUpperInvariant()));
+            return string.IsNullOrWhiteSpace(best) ? (exchanges.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty) : best;
         }
 
         // ==========================
@@ -1475,20 +1561,28 @@ namespace ArcTriggerUI.Dashboard
         // XAML -> MonthsPicker.SelectedIndexChanged="OnMonthChanged"
         private async void OnMonthChanged(object sender, EventArgs e)
         {
-            if (_apiService is null) return;
-
             try
             {
-                if (MonthsPicker == null || MonthsPicker.SelectedIndex < 0) return;
-                if (SecTypePicker == null || SecTypePicker.SelectedIndex < 0) return;
+                if (MonthsPicker.SelectedIndex < 0) return;
+                if (SecTypePicker.SelectedIndex < 0) return;
                 if (!_selectedConid.HasValue) return;
 
                 var month = MonthsPicker.Items[MonthsPicker.SelectedIndex];
                 MonthsPicker.Title = month;
+                _currentMonth = month;
+                ClearMaturityUI();
+
+
+                // her ay deðiþtiðinde strike listesini temizleyelim ki üst üste eklenmesin
+                StrikesPicker.Items.Clear();
                 var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
-                var exchange = _secdefExchanges.FirstOrDefault() ?? string.Empty;
+                var exchange = _currentExchange ?? string.Empty;
+                _currentExchange = exchange;
                 var conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
-                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/strikes?conid=" + conid + "&secType=" + secType + "&month=" + month + "&exchange=" + exchange;
+                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/strikes"
+    + $"?conid={conid}&secType={Uri.EscapeDataString(secType)}&month={Uri.EscapeDataString(month)}";
+                if (!string.IsNullOrWhiteSpace(exchange))
+                    url += $"&exchange={Uri.EscapeDataString(exchange)}";
 
                 var resp = await _apiService.GetAsync(url);
                 var json = resp;
@@ -1499,26 +1593,258 @@ namespace ArcTriggerUI.Dashboard
                 {
                     strikes.AddRange(strikesData.Call);
                     strikes.AddRange(strikesData.Put);
-                }
 
-                var callData = strikesData?.Call ?? new List<decimal>();
-                StrikesPicker?.Items.Clear();
-                foreach (var item in callData)
-                {
-                    StrikesPicker?.Items.Add(item.ToString());
                 }
+                _lastStrikes = strikesData ?? new StrikesResponses();
+                RebuildStrikesPicker();
 
                 //ApplyStrikesToUI(strikes);
             }
             catch (Exception)
             {
-
+                // yoksay
             }
         }
-        private void StrikesPicker_SelectedIndexChanged(object sender, EventArgs e)
+        private void RebuildStrikesPicker()
         {
-            if (StrikesPicker != null && StrikesPicker.SelectedIndex >= 0)
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                StrikesPicker.Items.Clear();
+                if (_lastStrikes == null)
+                {
+                    ClearMaturityUI();
+                    return;
+                }
+
+                IEnumerable<decimal> list = _currentRight == "P" ? _lastStrikes.Put : _lastStrikes.Call;
+
+                if (list != null)
+                {
+                    foreach (var s in list)
+                        StrikesPicker.Items.Add(s.ToString(CultureInfo.InvariantCulture));
+                }
+
+                // varsa ilkini seç ve maturity çek
+                if (StrikesPicker.Items.Count > 0)
+                {
+                    StrikesPicker.SelectedIndex = 0;
+                    _ = LoadMaturityDateForSelectionAsync();
+                }
+                else
+                {
+                    // hiç yoksa picker’ý temizle
+                    StrikesPicker.Title = "—";
+                    ClearMaturityUI();
+                }
+            });
+        }
+        private async Task LoadMaturityDateForSelectionAsync()
+        {
+            try
+            {
+                if (!_selectedConid.HasValue) return;
+                if (string.IsNullOrWhiteSpace(_currentSecType)) return;
+                if (string.IsNullOrWhiteSpace(_currentMonth)) return;
+                if (StrikesPicker.SelectedIndex < 0) return;
+
+                var conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
+                var secType = _currentSecType;
+                var month = _currentMonth;
+                var exchange = _currentExchange ?? string.Empty;
+
+                // strike normalize
+                var strikeText = StrikesPicker.SelectedItem?.ToString();
+                if (string.IsNullOrWhiteSpace(strikeText)) return;
+
+                if (!decimal.TryParse(strikeText, NumberStyles.Any, CultureInfo.InvariantCulture, out var strikeDec) &&
+                    !decimal.TryParse(strikeText, NumberStyles.Any, new CultureInfo("tr-TR"), out strikeDec))
+                    return;
+
+                var strikeParam = strikeDec.ToString(CultureInfo.InvariantCulture);
+
+                // URL
+                var qs = new List<string>
+        {
+            "conid="   + Uri.EscapeDataString(conid),
+            "secType=" + Uri.EscapeDataString(secType),
+            "month="   + Uri.EscapeDataString(month),
+            "strike="  + Uri.EscapeDataString(strikeParam),
+            "right="   + Uri.EscapeDataString(_currentRight)
+        };
+                if (!string.IsNullOrWhiteSpace(exchange))
+                    qs.Add("exchange=" + Uri.EscapeDataString(exchange));
+
+                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/info?" + string.Join("&", qs);
+
+                var raw = await _apiService.GetAsync(url);
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    SetMaturityUI(Array.Empty<string>());
+                    return;
+                }
+
+                var maturities = new List<string>();
+                var lastConids = new List<string>();
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(raw);
+                    var root = doc.RootElement;
+
+                    if (root.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in root.EnumerateArray())
+                        {
+                            if (item.ValueKind == JsonValueKind.Object)
+                            {
+                                // maturityDate
+                                if (item.TryGetProperty("maturityDate", out var m) && m.ValueKind == JsonValueKind.String)
+                                {
+                                    var s = m.GetString();
+                                    if (!string.IsNullOrWhiteSpace(s))
+                                        maturities.Add(s!);
+                                }
+
+                                // conid (lastConid)
+                                if (item.TryGetProperty("conid", out var c) &&
+                                    (c.ValueKind == JsonValueKind.Number || c.ValueKind == JsonValueKind.String))
+                                {
+                                    string conidValue = c.ValueKind == JsonValueKind.Number ? c.GetInt64().ToString() : c.GetString()!;
+                                    lastConids.Add(conidValue);
+                                    _lastConId = conidValue;
+                                }
+                            }
+                        }
+                    }
+
+                    // fallback
+                    if (maturities.Count == 0)
+                    {
+                        string? one = ExtractMaturityAny(root)
+                                      ?? (root.TryGetProperty("data", out var dataEl) ? ExtractMaturityAny(dataEl) : null)
+                                      ?? (root.TryGetProperty("quote", out var quoteEl) ? ExtractMaturityAny(quoteEl) : null);
+                        if (!string.IsNullOrWhiteSpace(one))
+                            maturities.Add(one!);
+                    }
+                }
+                catch
+                {
+                    var t = raw.Trim('"');
+                    if (!string.IsNullOrWhiteSpace(t)) maturities.Add(t);
+                }
+
+                // normalize + distinct + sýralama
+                var normalizedMaturities = maturities
+                    .Select(NormalizeMaturityDate)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(x => x)
+                    .ToList();
+
+                var normalizedConids = lastConids.Distinct().ToList();
+
+                SetMaturityUI(normalizedMaturities);
+            }
+            catch
+            {
+                SetMaturityUI(Array.Empty<string>());
+            }
+
+            // ---- helpers ----
+            static string? ExtractMaturityAny(JsonElement el)
+            {
+                string[] keys = { "maturityDate", "maturity", "expiryDate", "expiry", "expirationDate", "expiration" };
+                foreach (var k in keys)
+                {
+                    if (el.TryGetProperty(k, out var p))
+                    {
+                        if (p.ValueKind == JsonValueKind.String) return p.GetString();
+                        if (p.ValueKind == JsonValueKind.Number && p.TryGetInt64(out var num))
+                        {
+                            var dt = (num > 9999999999)
+                                ? DateTimeOffset.FromUnixTimeMilliseconds(num).UtcDateTime
+                                : DateTimeOffset.FromUnixTimeSeconds(num).UtcDateTime;
+                            return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                        }
+                    }
+                }
+                return null;
+            }
+
+            static string? NormalizeMaturityDate(string? raw)
+            {
+                if (string.IsNullOrWhiteSpace(raw)) return null;
+                var t = raw.Trim();
+
+                if (DateTime.TryParse(t, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt))
+                    return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+                if (t.Length == 8 && t.All(char.IsDigit))
+                {
+                    var y = int.Parse(t[..4]);
+                    var m = int.Parse(t.Substring(4, 2));
+                    var d = int.Parse(t.Substring(6, 2));
+                    return new DateTime(y, m, d, 0, 0, 0, DateTimeKind.Utc).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                }
+
+                if (long.TryParse(t, out var num))
+                {
+                    var dt2 = (num > 9999999999)
+                        ? DateTimeOffset.FromUnixTimeMilliseconds(num).UtcDateTime
+                        : DateTimeOffset.FromUnixTimeSeconds(num).UtcDateTime;
+                    return dt2.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                }
+
+                return t;
+            }
+
+            void SetMaturityUI(IEnumerable<string> maturities)
+            {
+                var matList = maturities?.ToList() ?? new List<string>();
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    MaturityDateLabel.Items.Clear();
+
+                    if (matList.Count == 0)
+                    {
+                        MaturityDateLabel.Title = "—";
+                        MaturityDateLabel.SelectedIndex = -1;
+                    }
+                    else
+                    {
+                        foreach (var m in matList)
+                        {
+                            MaturityDateLabel.Items.Add(m);
+                        }
+
+                        MaturityDateLabel.SelectedIndex = 0;
+                        MaturityDateLabel.Title = matList[0];
+                    }
+                });
+            }
+
+        }
+
+        private async void StrikesPicker_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (StrikesPicker.SelectedIndex >= 0)
                 StrikesPicker.Title = StrikesPicker.SelectedItem.ToString();
+            await LoadMaturityDateForSelectionAsync();
+        }
+        private void MaturityDateLabel_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (MaturityDateLabel.SelectedIndex >= 0)
+                MaturityDateLabel.Title = MaturityDateLabel.Items[MaturityDateLabel.SelectedIndex];
+        }
+        private void ClearMaturityUI()
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                MaturityDateLabel.Items.Clear();
+                MaturityDateLabel.Title = "—";
+                MaturityDateLabel.SelectedIndex = -1;
+            });
         }
 
         public class StrikesResponses
@@ -1527,7 +1853,8 @@ namespace ArcTriggerUI.Dashboard
             public List<decimal> Put { get; set; } = new();
         }
 
-        // SECDEF: StrikeEntry ve 2 preset butonu doldur
-      
+
+
+
     }
 }
