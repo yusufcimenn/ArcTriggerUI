@@ -73,9 +73,28 @@
                                        HorizontalOptions="End"/>
                                 <HorizontalStackLayout Spacing="10" HorizontalOptions="Start">
                                     <Button Text="Invalidate" BackgroundColor="Red"/>
-                                    <Button Text="Breakeven"  BackgroundColor="Gray" />
+                                    <Button Text="Breakeven"  BackgroundColor="Gray" Clicked="OnBreakevenClicked" />
                                 </HorizontalStackLayout>
                                
+                                <HorizontalStackLayout Spacing="5"  HorizontalOptions="End">
+                                    <Label Text="Profit Taking: " VerticalOptions="Center"/>
+                                    <Button x:Name="BtnProf1" Text="10%" Style="{StaticResource ChipButton}">
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" />
+                                        </Button.GestureRecognizers>
+                                    </Button>
+                                    <Button x:Name="BtnProf2" Text="20%" Style="{StaticResource ChipButton}">
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary" />
+                                        </Button.GestureRecognizers>
+                                    </Button>
+                                    <Button x:Name="BtnProf3" Text="30%" Style="{StaticResource ChipButton}">
+                                        <Button.GestureRecognizers>
+                                            <TapGestureRecognizer Buttons="Secondary"/>
+                                        </Button.GestureRecognizers>
+                                    </Button>
+                                    <Button Text="+" Style="{StaticResource ChipButton}"/>
+                                </HorizontalStackLayout>
                             </VerticalStackLayout>
                             
 

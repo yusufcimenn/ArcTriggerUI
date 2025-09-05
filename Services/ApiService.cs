@@ -151,7 +151,7 @@ namespace ArcTriggerUI.Services
 
         public async Task<string> SendOrderAsync(OrderRequest order)
         {
-            var url = $"http://192.168.1.107:8000/api/orderUI?" +
+            var url = Configs.BaseUrl+$"/orderUI?" +
               $"conid={order.Conid}" +
               $"&trigger={order.Trigger}" +
               $"&orderMode={order.OrderMode}" +
@@ -171,6 +171,24 @@ namespace ArcTriggerUI.Services
             }
 
             return responseBody;
+        }
+
+        public async Task<string> SellOrder(OrderSell orderSell)
+        {
+            var url = Configs.BaseUrl +$"/sell/quantity"+
+                $"?conid={orderSell.conid}" +
+                $"&orderId={orderSell.orderId}" +
+                $"&percent={orderSell.percent.ToString(CultureInfo.InvariantCulture)}" +
+                $"&orderType={HttpUtility.UrlEncode(orderSell.orderType)}";
+            using var response = await _httpClient.PostAsync(url, null);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new Exception($"API Hatası: {response.StatusCode} - {responseBody}");
+            }
+            return responseBody
+            ;
+
         }
     }
 
