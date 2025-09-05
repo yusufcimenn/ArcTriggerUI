@@ -141,6 +141,9 @@ namespace ArcTriggerUI.Dashboard
             };
 
             ContentGrid.GestureRecognizers.Add(panGesture);
+
+            // >>> fiyatý periyodik çek
+            StartPriceAutoRefresh(TimeSpan.FromSeconds(3));
         }
 
         private static IApiService? TryResolveApi()
@@ -1853,7 +1856,70 @@ namespace ArcTriggerUI.Dashboard
             public List<decimal> Put { get; set; } = new();
         }
 
+        private CancellationTokenSource? _autoPriceCts;
 
+        public void StartPriceAutoRefresh(TimeSpan? interval = null)
+        {
+            // tekrar baþlatýlýrsa önce eskisini durdur
+            StopPriceAutoRefresh();
+
+            _autoPriceCts = new CancellationTokenSource();
+            var token = _autoPriceCts.Token;
+            var delay = interval ?? TimeSpan.FromSeconds(3); // her 3 sn’de bir
+
+            _ = Task.Run(async () =>
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        // UpdateMarketPriceAsync UI’yý güncelliyor, ana threade geçelim
+                        await MainThread.InvokeOnMainThreadAsync(async () =>
+                        {
+                            await UpdateMarketPriceAsync();
+                        });
+                    }
+                    catch { /* yut gitsin */ }
+
+                    try
+                    {
+                        await Task.Delay(delay, token);
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        break;
+                    }
+                }
+            }, token);
+        }
+
+        public void StopPriceAutoRefresh()
+        {
+            try
+            {
+                _autoPriceCts?.Cancel();
+                _autoPriceCts?.Dispose();
+            }
+            catch { /* yut gitsin */ }
+            finally
+            {
+                _autoPriceCts = null;
+            }
+        }
+        protected override void OnParentSet()
+        {
+            base.OnParentSet();
+            if (Parent == null)
+            {
+                // görünüm kaldýrýldý
+                StopPriceAutoRefresh();
+            }
+        }
+        private void AutoRefreshSwitch_Toggled(object sender, ToggledEventArgs e)
+        {
+            if (e.Value) StartPriceAutoRefresh(TimeSpan.FromSeconds(3));
+            else StopPriceAutoRefresh();
+        }
 
 
     }

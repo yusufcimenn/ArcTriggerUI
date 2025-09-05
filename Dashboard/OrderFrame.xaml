@@ -254,6 +254,9 @@
                                        VerticalTextAlignment="Center"
                                        HorizontalTextAlignment="Start"
                                        TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
+                                    <Switch x:Name="AutoRefreshSwitch" IsToggled="True"
+        Toggled="AutoRefreshSwitch_Toggled"/>
+
                                 </VerticalStackLayout>
 
                                 <!-- SECDEF: SecType -->
@@ -536,7 +539,7 @@
                                                 Style="{StaticResource PrimaryAction}"
                                                 Clicked="OnCreateOrdersClicked"/>
                                             <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
-                                            <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnGetOrdersClicked"/>
+                                            <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnCancelClicked"/>
 
                                         </HorizontalStackLayout>
                                         <HorizontalStackLayout Padding="0,10,10,10">
