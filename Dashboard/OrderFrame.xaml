@@ -172,7 +172,7 @@
                 <Frame HorizontalOptions="Fill"
                    VerticalOptions="Center"
                    BackgroundColor="{AppThemeBinding Light=#FAFAFA, Dark=#1B1D22}"
-                   BorderColor="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}"
+                   BorderColor="Gray"
                    CornerRadius="12"
                    HasShadow="False"
                    Padding="12">

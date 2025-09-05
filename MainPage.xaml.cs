@@ -22,6 +22,22 @@ namespace ArcTriggerUI
                 UpdateDarkModeButton();
             }
         }
+        private void NumberEntry_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (!string.IsNullOrEmpty(NumberEntry.Text))
+            {
+                // sadece rakam girilsin
+                if (!int.TryParse(NumberEntry.Text, out int value) || value < 1 || value > 9)
+                {
+                    NumberEntry.Text = string.Empty; // geçersizse temizle
+                }
+                else if (NumberEntry.Text.Length > 1) // 2 haneli olmasın
+                {
+                    NumberEntry.Text = NumberEntry.Text[0].ToString();
+                }
+            }
+        }
+
 
         private void OnAddOrderClicked(object sender, EventArgs e)
         {

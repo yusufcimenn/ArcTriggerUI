@@ -11,27 +11,29 @@
         <ToolbarItem x:Name="btnDarkMode"
                      Text="Dark"
                      IconImageSource="night_mode.png"
-                     Clicked="OnToggleThemeClicked" />
+                     Clicked="OnToggleThemeClicked" 
+                     />
     </ContentPage.ToolbarItems>
 
-    <ScrollView>
+    <ScrollView >
         <Grid Padding="16" RowDefinitions="Auto,Auto,*" RowSpacing="12">
 
         <!-- Kaç tane OrderFrame eklenecek -->
-        <Entry x:Name="NumberEntry"
+            <Entry x:Name="NumberEntry"
                Placeholder="1-9"
                 WidthRequest="40"
                 HeightRequest="40"
-               Keyboard="Numeric" />
+               Keyboard="Numeric" 
+               TextChanged="NumberEntry_TextChanged"/>
 
             <!-- + Order (küçük yuvarlak buton) -->
             <Button Grid.Row="1"
         Text="Start Trigger"
         WidthRequest="107"
         HeightRequest="40"
-        FontSize="18"
-        CornerRadius="20"  
-        BackgroundColor="#FF0000"
+        FontSize="16"
+        CornerRadius="14"  
+        BackgroundColor="#D10000"
         TextColor="White"
         Padding="0"
         Clicked="OnAddOrderClicked" />
@@ -40,7 +42,8 @@
         
             <VerticalStackLayout x:Name="OrdersContainer"
                                  Spacing="12" 
-                                 Grid.Row="2"/>
+                                 Grid.Row="2"
+                                 />
         
     </Grid>
     </ScrollView>
