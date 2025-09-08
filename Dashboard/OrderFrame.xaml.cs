@@ -4,8 +4,9 @@ using ArcTriggerUI.Dtos;
 using ArcTriggerUI.Dtos.Orders;
 using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
-using Microsoft.Maui.Controls;                 // MAUI Controls
 using Microsoft.Maui.ApplicationModel;         // MainThread
+using Microsoft.Maui.Controls;                 // MAUI Controls
+using Microsoft.Maui.Controls.Compatibility;
 using Microsoft.Maui.Storage;                  // Preferences
 using System;
 using System.Collections.Generic; // SECDEF: listeler için
@@ -18,6 +19,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
+using Layout = Microsoft.Maui.Controls.Layout;
 
 namespace ArcTriggerUI.Dashboard
 {
@@ -672,11 +674,18 @@ namespace ArcTriggerUI.Dashboard
         #endregion
 
         #region Cancel Clicked || Ýptal Týklandý
-        void OnCancelClicked(object sender, EventArgs e)
+        private void OnCancelClicked(object sender, EventArgs e)
         {
-            var w = this.Window;
-            if (w != null && Application.Current != null)
-                Application.Current.CloseWindow(w);
+            Element cursor = this;
+            while (cursor?.Parent is not null &&
+                   cursor.Parent is not Microsoft.Maui.Controls.Layout)
+            {
+                cursor = cursor.Parent;
+            }
+
+            var container = cursor?.Parent as Microsoft.Maui.Controls.Layout;
+            if (container is not null)
+                container.Children.Remove(this);
         }
         #endregion
 
@@ -1272,7 +1281,7 @@ namespace ArcTriggerUI.Dashboard
 
                 if (string.IsNullOrWhiteSpace(symbolParam))
                 {
-                    MarketPriceLabel.Text = "—";
+                    ApplyPriceUI(null, null);
                     return;
                 }
 
@@ -1292,7 +1301,7 @@ namespace ArcTriggerUI.Dashboard
                 // 1) Düz sayý string’i (örn "123.45")
                 if (decimal.TryParse(raw.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var direct))
                 {
-                    MarketPriceLabel.Text = direct.ToString("0.00", CultureInfo.InvariantCulture);
+                    ApplyPriceUI(direct, false);  // kapalý deðil varsayýyoruz (flag yok)
                     return;
                 }
 
@@ -1339,14 +1348,8 @@ namespace ArcTriggerUI.Dashboard
                             }
                         }
 
-                        if (arrayPrice.HasValue || arrayMarketClosed.HasValue)
-                        {
-                            var suffix = arrayMarketClosed == true ? " (market closed)" : string.Empty;
-                            MarketPriceLabel.Text = arrayPrice.HasValue
-                                ? arrayPrice.Value.ToString("0.00", CultureInfo.InvariantCulture) + suffix
-                                : ("—" + suffix);
-                            return;
-                        }
+                        ApplyPriceUI(arrayPrice, arrayMarketClosed);
+                        return;
                     }
 
                     // --- Genel durum: object (veya farklý yapý) ---
@@ -1362,7 +1365,7 @@ namespace ArcTriggerUI.Dashboard
                             (root.TryGetProperty("data", out var dataObj) && TryExtractDecimal(dataObj, priceKeys, out price)) ||
                             (root.TryGetProperty("quote", out var quoteObj) && TryExtractDecimal(quoteObj, priceKeys, out price)))
                         {
-                            MarketPriceLabel.Text = price.ToString("0.00", CultureInfo.InvariantCulture) + (marketClosed ? " (market closed)" : "");
+                            ApplyPriceUI(price, marketClosed);
                             return;
                         }
 
@@ -1384,23 +1387,23 @@ namespace ArcTriggerUI.Dashboard
                         if (bid.HasValue && ask.HasValue)
                         {
                             var mid = (bid.Value + ask.Value) / 2m;
-                            MarketPriceLabel.Text = mid.ToString("0.00", CultureInfo.InvariantCulture) + (marketClosed ? " (market closed)" : "");
+                            ApplyPriceUI(mid, marketClosed);
                             return;
                         }
                         if (bid.HasValue) // en azýndan bid göster
                         {
-                            MarketPriceLabel.Text = bid.Value.ToString("0.00", CultureInfo.InvariantCulture) + (marketClosed ? " (market closed)" : "");
+                            ApplyPriceUI(bid.Value, marketClosed);
                             return;
                         }
                     }
                 }
 
                 // Hiçbiri olmadýysa
-                MarketPriceLabel.Text = "N/A (snapshot price yok)";
+                ApplyPriceUI(null, null);
             }
             catch
             {
-                MarketPriceLabel.Text = "N/A";
+                ApplyPriceUI(null, null);
             }
 
             // ---- helpers (marketprice için) ----
@@ -1865,7 +1868,7 @@ namespace ArcTriggerUI.Dashboard
 
             _autoPriceCts = new CancellationTokenSource();
             var token = _autoPriceCts.Token;
-            var delay = interval ?? TimeSpan.FromSeconds(3); // her 3 sn’de bir
+            var delay = interval ?? TimeSpan.FromSeconds(2); // her 3 sn’de bir
 
             _ = Task.Run(async () =>
             {
@@ -1917,10 +1920,104 @@ namespace ArcTriggerUI.Dashboard
         }
         private void AutoRefreshSwitch_Toggled(object sender, ToggledEventArgs e)
         {
-            if (e.Value) StartPriceAutoRefresh(TimeSpan.FromSeconds(3));
+            if (e.Value) StartPriceAutoRefresh(TimeSpan.FromSeconds(2));
             else StopPriceAutoRefresh();
         }
+        // Price paint state
+        private decimal? _prevPrice;
+        private bool? _prevMarketClosed;
+        // fiyat + market status durumuna göre UI renkleri uygula
+        // fiyat + market status durumuna göre UI renkleri uygula (null-safe)
+        private void ApplyPriceUI(decimal? price, bool? marketClosed)
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                var suffix = marketClosed == true ? " (market closed)" : string.Empty;
 
+                if (MarketPriceLabel != null)
+                    MarketPriceLabel.Text = price.HasValue
+                        ? MarketPriceLabel.Text = price.Value.ToString(CultureInfo.InvariantCulture) + suffix
+                        : "—" + suffix;
+
+                // Eðer XAML'de rozet (Frame) yoksa sadece yazý rengini ayarla ve çýk
+                var hasBadge = this.FindByName<Frame>("MarketPriceBadge") != null;
+                if (!hasBadge)
+                {
+                    if (MarketPriceLabel != null)
+                    {
+                        if (marketClosed == true)
+                        {
+                            // kapalýyken gri ton (arka plan yoksa text'i soluk yapalým)
+                            MarketPriceLabel.TextColor = Colors.Gray;
+                        }
+                        else
+                        {
+                            // açýkken: yükseliþ/düþüþe göre text rengi
+                            if (_prevPrice.HasValue && price.HasValue)
+                            {
+                                if (price.Value > _prevPrice.Value) MarketPriceLabel.TextColor = Colors.Green;
+                                else if (price.Value < _prevPrice.Value) MarketPriceLabel.TextColor = Colors.Red;
+                                else MarketPriceLabel.TextColor = Colors.White;
+                            }
+                            else
+                            {
+                                MarketPriceLabel.TextColor = Colors.White;
+                            }
+                        }
+                    }
+
+                    _prevPrice = price;
+                    _prevMarketClosed = marketClosed;
+                    return;
+                }
+
+                // Rozet var ise hem arka planý hem text rengini ayarla
+                var badge = this.FindByName<Frame>("MarketPriceBadge");
+                if (badge != null)
+                {
+                    if (marketClosed == true)
+                    {
+                        // piyasa kapalý ? gri
+                        badge.BackgroundColor = Colors.LightGray;
+                        if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.Black;
+                    }
+                    else
+                    {
+                        // önceki fiyatla karþýlaþtýr
+                        if (_prevPrice.HasValue && price.HasValue)
+                        {
+                            if (price.Value > _prevPrice.Value)
+                            {
+                                // yükseldi ? yeþil
+                                badge.BackgroundColor = Colors.Green;
+                                if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.White;
+                            }
+                            else if (price.Value < _prevPrice.Value)
+                            {
+                                // düþtü ? kýrmýzý
+                                badge.BackgroundColor = Colors.Red;
+                                if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.White;
+                            }
+                            else
+                            {
+                                // deðiþmedi ? nötr
+                                badge.BackgroundColor = Colors.Transparent;
+                                if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.DarkGray;
+                            }
+                        }
+                        else
+                        {
+                            // ilk fiyat ? nötr
+                            badge.BackgroundColor = Colors.Transparent;
+                            if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.DarkGray;
+                        }
+                    }
+                }
+
+                _prevPrice = price;
+                _prevMarketClosed = marketClosed;
+            });
+        }
 
     }
 }

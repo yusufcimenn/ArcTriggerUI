@@ -243,20 +243,29 @@
                                 </VerticalStackLayout>
 
                                 <!-- Market Price -->
-                                <VerticalStackLayout Spacing="0" Padding="0,0,6,0" WidthRequest="100">
+                                <VerticalStackLayout Spacing="4" Padding="0,0,6,0" WidthRequest="120">
                                     <Label Text="Market Price:"
-                                       Style="{StaticResource HeaderLabel}"
-                                       HorizontalTextAlignment="Start"
-                                       HorizontalOptions="Start"/>
-                                    <Label x:Name="MarketPriceLabel"
-                                       Text="—"
-                                       FontSize="14"
-                                       VerticalTextAlignment="Center"
-                                       HorizontalTextAlignment="Start"
-                                       TextColor="{AppThemeBinding Light=#111827, Dark=#F3F4F6}"/>
-                                    <Switch x:Name="AutoRefreshSwitch" IsToggled="True"
-        Toggled="AutoRefreshSwitch_Toggled"/>
+                                           Style="{StaticResource HeaderLabel}"
+                                           HorizontalTextAlignment="Start"
+                                           HorizontalOptions="Start" />
 
+                                    <Frame x:Name="MarketPriceBadge"
+                                           Padding="4,2"
+                                           CornerRadius="6"
+                                           HasShadow="False"
+                                           BackgroundColor="Transparent"
+                                           HorizontalOptions="Start">
+                                        <Label x:Name="MarketPriceLabel"
+                                               Text="—"
+                                               FontSize="14"
+                                               VerticalTextAlignment="Center"
+                                               HorizontalTextAlignment="Center"
+                                               TextColor="White" />
+                                    </Frame>
+
+                                    <Switch x:Name="AutoRefreshSwitch"
+                                            IsToggled="True"
+                                            Toggled="AutoRefreshSwitch_Toggled" />
                                 </VerticalStackLayout>
 
                                 <!-- SECDEF: SecType -->
@@ -444,6 +453,7 @@
                                             </Button.GestureRecognizers>
                                         </Button>
                                         <Button Text="+" Style="{StaticResource ChipButton}" Clicked="OnHotAddClicked" CommandParameter="pos"/>
+                                        
                                         <VerticalStackLayout Padding="40,0,0,0" >
 
                                             <Entry IsEnabled="False" 
@@ -539,7 +549,11 @@
                                                 Style="{StaticResource PrimaryAction}"
                                                 Clicked="OnCreateOrdersClicked"/>
                                             <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
-                                            <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnCancelClicked"/>
+                                            <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnBreakevenClicked"/>
+                                            <Button Text="Cancel"
+                Style="{StaticResource ActionNeutral}"
+                Clicked="OnCancelClicked"/>
+                                            
 
                                         </HorizontalStackLayout>
                                         <HorizontalStackLayout Padding="0,10,10,10">
