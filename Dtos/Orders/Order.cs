@@ -13,7 +13,7 @@ namespace ArcTriggerUI.Dtos.Orders
         public string OrderType { get; set; }
         public string OrderMode { get; set; }
         public decimal Offset { get; set; }
-        public string Strike { get; set; }
+        public decimal Strike { get; set; }
         public string Expiry { get; set; }
         public decimal PositionSize { get; set; }
         public decimal StopLoss { get; set; }
