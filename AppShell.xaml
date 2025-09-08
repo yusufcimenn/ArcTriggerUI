@@ -8,11 +8,11 @@
     Title="ArcTriggerUI">
 
     <!-- Giriş -->
-    <FlyoutItem Title="Login Page" Route="MyNewPage">
+    <!-- <FlyoutItem Title="Login Page" Route="MyNewPage">
         <ShellContent
             Title="Login Page"
             ContentTemplate="{DataTemplate pages:LoginPageWV}" />
-    </FlyoutItem>
+    </FlyoutItem> -->
 
     <!-- Ana ekran -->
     <FlyoutItem Title="ARC TRIGGER" Route="MainPage">

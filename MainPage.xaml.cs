@@ -1,18 +1,33 @@
 ﻿using ArcTriggerUI.Dashboard;
 using ArcTriggerUI.Interfaces;
+using ArcTriggerUI.Tws.Services;
+using ArcTriggerUI.Tws.Functions;
 using Microsoft.Maui;
+using ArcTriggerUI.Dtos.Orders;
 
 namespace ArcTriggerUI
 {
     public partial class MainPage : ContentPage
     {
-        private readonly IApiService _apiService;
+        // private readonly IApiService _apiService;
+
+        private readonly TwsService _tws;
+
+        private readonly ContractFunctions _contractFunctions;
+        private readonly MarketDataFunctions _marketDataFunctions;
+        private readonly OrderFunctions _orderFunctions;
         private bool _isDark = false; // dark/light toggle state
 
-        public MainPage(IApiService apiService)
+        public MainPage(TwsService twsService)
         {
             InitializeComponent();
-            _apiService = apiService;
+            // _apiService = apiService;
+
+            _tws = twsService;
+
+            _contractFunctions = new ContractFunctions(_tws);
+            _marketDataFunctions = new MarketDataFunctions(_tws);
+            _orderFunctions = new OrderFunctions(_tws);
 
             // Başlangıçta temaya göre toolbar ayarla
             var app = Application.Current;
@@ -47,7 +62,7 @@ namespace ArcTriggerUI
 
             for (int i = 0; i < count; i++)
             {
-                var order = new OrderFrame(_apiService);
+                var order = new OrderFrame(_contractFunctions, _marketDataFunctions, _orderFunctions);
                 OrdersContainer.Children.Add(order);
             }
         }

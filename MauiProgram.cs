@@ -1,5 +1,6 @@
 ﻿using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
+using ArcTriggerUI.Tws.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using CommunityToolkit.Maui;
@@ -24,8 +25,7 @@ namespace ArcTriggerUI
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
-            builder.Services.AddSingleton<IApiService, ApiService>();
-            builder.Services.AddHttpClient<ApiService>();
+            builder.Services.AddSingleton<TwsService>();
             builder.Services.AddTransient<HistoryPage>();
 
             #if DEBUG
