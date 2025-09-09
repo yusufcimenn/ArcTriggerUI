@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using CommunityToolkit.Maui;
 using ArcTriggerUI.Pages;
+using ArcTriggerV2.Core.Services;
 
 
 
@@ -27,8 +28,9 @@ namespace ArcTriggerUI
             builder.Services.AddSingleton<IApiService, ApiService>();
             builder.Services.AddHttpClient<ApiService>();
             builder.Services.AddTransient<HistoryPage>();
+            builder.Services.AddSingleton<TwsService>();
 
-            #if DEBUG
+#if DEBUG
             builder.Logging.AddDebug();
             #endif
 

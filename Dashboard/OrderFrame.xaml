@@ -554,6 +554,7 @@
                                                 Clicked="OnCreateOrdersClicked"/>
                                             <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
                                             <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnBreakevenClicked"/>
+                                            <Button Text="Deneme"  Style="{StaticResource ActionNeutral}" Clicked="SymbolAPI"/>
                                             <Button Text="Cancel"
                 BackgroundColor="IndianRed"
                 Clicked="OnCancelClicked"/>

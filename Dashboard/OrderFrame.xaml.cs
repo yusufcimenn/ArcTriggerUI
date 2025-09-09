@@ -4,6 +4,7 @@ using ArcTriggerUI.Dtos;
 using ArcTriggerUI.Dtos.Orders;
 using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
+using ArcTriggerV2.Core.Services;
 using Microsoft.Maui.ApplicationModel;         // MainThread
 using Microsoft.Maui.Controls;                 // MAUI Controls
 using Microsoft.Maui.Controls.Compatibility;
@@ -47,7 +48,7 @@ namespace ArcTriggerUI.Dashboard
         private const string PrefKey = "possize.hotbuttons.v1";
         #endregion
 
-        private readonly IApiService _apiService;
+    
         private double positionSize;
         private double trigger;
         private string? _currentSecType;
@@ -118,12 +119,16 @@ namespace ArcTriggerUI.Dashboard
             public string? maturityDate { get; set; }
             public bool? showPrips { get; set; }
         }
-
-        public OrderFrame(IApiService apiService)
+        private readonly TwsService _twsService;
+     
+        public OrderFrame(TwsService twsService )
         {
+
             InitializeComponent();
             InitHotSections();
-            _apiService = apiService;
+            
+            _twsService = twsService;           
+            twsService.ConnectAsync("127.0.0.1", 7497, 0);
 
             SymbolSuggestions.ItemsSource = _symbolResults;
             var panGesture = new PanGestureRecognizer();
@@ -147,18 +152,8 @@ namespace ArcTriggerUI.Dashboard
             // >>> fiyatý periyodik çek
             StartPriceAutoRefresh(TimeSpan.FromSeconds(3));
         }
-
-        private static IApiService? TryResolveApi()
-        {
-            try
-            {
-                return Application.Current?.Handler?.MauiContext?.Services.GetService(typeof(IApiService)) as IApiService;
-            }
-            catch { return null; }
-        }
-
-        // ========= Page-based dialog helpers (ContentView'de Display* yerine) =========
-
+        
+       
         private Page? HostPage =>
             Shell.Current?.CurrentPage ??
             Application.Current?.MainPage ??
@@ -697,286 +692,85 @@ namespace ArcTriggerUI.Dashboard
 
         #endregion
         #region Api Request || Api Ýstek 
-        private async void OnGetTickleClicked(object sender, EventArgs e)
-        {
 
+        private async void SymbolAPI(object sender, EventArgs e)
+        {
+            List<string> symbolList = new List<string>();
+ 
             try
             {
-                string url = Configs.BaseUrl + "/tickle";
-                string result = await _apiService.GetAsync(url);
-                await ShowAlert("Auto Call", $"API Response: {result}", "OK");
+
+                var results = await _twsService.SearchSymbolsAsync("AAPL");
+
+                foreach (var r in results)
+                {
+                    symbolList.Add(r.Symbol+" "+r.Description);
+                }
+                StockPicker.ItemsSource = symbolList;
             }
             catch (Exception ex)
             {
-                await ShowAlert("Error", ex.Message, "OK");
+                Console.WriteLine("Hata: " + ex.Message);
             }
+
+        }
+        private async void OnGetTickleClicked(object sender, EventArgs e)
+        {
+
 
         }
 
         private async void OnGetStatusClicked(object sender, EventArgs e)
         {
-            try
-            {
-                string url = Configs.BaseUrl + "/status";
-                string result = await _apiService.GetAsync(url);
-                await ShowAlert("Auto Call", $"API Response: {result}", "OK");
-
-            }
-            catch (Exception ex)
-            {
-
-                await ShowAlert("Error", ex.Message, "OK");
-            }
+           
         }
 
         private async void OnPostSymbolClicked(object sender, EventArgs e)
         {
-            try
-            {
-                string url = Configs.BaseUrl + "/getSymbol";
-
-                var request = new ResultSymbols
-                {
-                    symbol = "AAPL",
-                    name = true,
-                    secType = "STK"
-                };
-
-                // TResponse artýk ResultSymbols olmalý, string deðil
-                List<ResultSymbols> result = await _apiService.PostAsync<ResultSymbols, List<ResultSymbols>>(url, request);
-
-                var first = result.FirstOrDefault();
-                if (first != null)
-                {
-                    await ShowAlert("Success",
-                        $"Symbol: {first.symbol}, Name: {first.name}, SecType: {first.secType}", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await ShowAlert("Error", ex.Message, "OK");
-            }
+         
         }
 
 
         private async void OnDeleteOrderClicked(object sender, EventArgs e)
         {
-            int symbolId = 265598; // veya kullanýcýdan alabilirsiniz
-
-            bool confirm = await ShowConfirm(
-                "Delete Confirmation",
-                $"Are you sure you want to delete order '{symbolId}'?",
-                "OK",
-                "Cancel"
-            );
-
-            if (!confirm)
-                return;
-
-            try
-            {
-                string url = Configs.BaseUrl + "/orders/";
-                await _apiService.DeleteAsync(url, symbolId);
-
-                await ShowAlert("Success", $"Symbol '{symbolId}' deleted successfully!", "OK");
-            }
-            catch (Exception ex)
-            {
-                await ShowAlert("Error", ex.Message, "OK");
-            }
+           
         }
 
         private async void OnSecdefStrikeClicked(object sender, EventArgs e)
         {
-            try
-            {
-                string result = await _apiService.GetSecDefStrikeAsync("46639520", "ASDA", "STK");
-                await ShowAlert("Success", $"API Response: {result}", "OK");
-            }
-            catch (Exception ex)
-            {
-                await ShowAlert("Error", ex.Message, "OK");
-            }
+           
         }
 
         private async void OngGetSecdef(object sender, EventArgs e)
         {
-            try
-            {
-                var response = await _apiService.GetSecDefAsync("46639520");
-
-                if (response?.secdef != null && response.secdef.Count > 0)
-                {
-                    var first = response.secdef[0];
-                    string msg = $"Name: {first.name}\nTicker: {first.ticker}\nCurrency: {first.currency}\nHasOptions: {first.hasOptions}";
-                    await ShowAlert("SecDef Item", msg, "OK");
-                }
-                else
-                {
-                    await ShowAlert("SecDef", "Hiç kayýt yok.", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await ShowAlert("Error", ex.Message, "OK");
-            }
+          
         }
 
         private async void OnGetInfoClicked(object sender, EventArgs e)
         {
-            try
-            {
-                var info = await _apiService.GetInfoAsync("46639520");
-                await ShowAlert("Info",
-                    $"Conid: {info.conid}\nTicker: {info.ticker}\nCompany: {info.companyName}\nCurrency: {info.currency}",
-                    "OK");
-            }
-            catch (Exception ex)
-            {
-                await ShowAlert("Error", ex.Message, "OK");
-            }
+          
         }
 
 
         // Örnek buton click event
         private async void OnGetPortfolioClicked(object sender, EventArgs e)
         {
-            try
-            {
-                // ApiService instance'ýný kullan
-                var portfolioList = await _apiService.GetPortfolioAsync();
-
-                if (portfolioList != null && portfolioList.Count > 0)
-                {
-                    // Ýlk portfolio item'ý gösterelim
-                    var firstItem = portfolioList[0];
-
-                    string message =
-                        $"ID: {firstItem.id}\n" +
-                        $"DisplayName: {firstItem.displayName}\n" +
-                        $"AccountId: {firstItem.accountId}\n" +
-                        $"Currency: {firstItem.currency}\n" +
-                        $"Type: {firstItem.type}";
-
-                    await ShowAlert("Portfolio Item", message, "OK");
-                }
-                else
-                {
-                    await ShowAlert("Portfolio", "Hiç kayýt bulunamadý.", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                await ShowAlert("Error", ex.Message, "OK");
-            }
+           
         }
 
         private async void LoadOrders(object sender, EventArgs e)
         {
-            try
-            {
-                string url = Configs.BaseUrl + "/orders";
-
-                // Raw JSON olarak çekiyoruz
-                string json = await _apiService.GetAsync(url);
-
-                // JSON'u dinamik olarak parse ediyoruz (tip hatasý olmayacak)
-                var orders = System.Text.Json.JsonSerializer.Deserialize<List<JsonElement>>(json);
-
-                foreach (var order in orders)
-                {
-                    string ticker = order.GetProperty("ticker").GetString();
-                    string companyName = order.GetProperty("companyName").GetString();
-                    string side = order.GetProperty("side").GetString();
-                    string status = order.GetProperty("status").GetString();
-                    string price = order.GetProperty("price").GetRawText(); // number olabilir
-                    string totalSize = order.GetProperty("totalSize").GetRawText(); // number olabilir
-
-                    string message = $"Ticker: {ticker}\n" +
-                                     $"Company: {companyName}\n" +
-                                     $"Side: {side}\n" +
-                                     $"Price: {price}\n" +
-                                     $"Status: {status}\n" +
-                                     $"Quantity: {totalSize}";
-                }
-                string alertMessage = "Baþarýlý";
-                await ShowAlert("Order Info", alertMessage, "OK");
-            }
-            catch (Exception ex)
-            {
-                await ShowAlert("Error", ex.Message, "OK");
-            }
+           
         }
 
         private async void OnPostOrderClicked(object sender, EventArgs e)
         {
-            try
-            {
-                var request = new PostOrderItem
-                {
-                    conid = 46639520,
-                    orderType = "LMT",
-                    price = 1700,
-                    quantity = 1000, // artýk API kabul eder
-                    side = "BUY",
-                    tif = "DAY"
-                };
-
-                var result = await _apiService.CreateOrderAsync(request);
-
-                if (result != null)
-                {
-                    await ShowAlert("Success",
-                        $"Order ID: {result.OrderId ?? "(null)"}\n" +
-                        $"Status: {result.OrderStatus ?? "(null)"}\n" +
-                        $"Encrypt: {result.EncryptMessage ?? "(null)"}",
-                        "OK");
-                }
-                else
-                {
-                    await ShowAlert("Info", "No order returned from API.", "OK");
-                }
-            }
-            catch (Exception ex)
-            {
-                // API hatasý veya network hatasý buraya gelir
-                await ShowAlert("Error", ex.Message, "OK");
-            }
+           
         }
 
         private async void OnGetOrdersClicked(object sender, EventArgs e)
         {
-            try
-            {
-                int orderId = 760072067; // Örnek order ID
-                var order = await _apiService.GetAsync<OrderResponseDto>(Configs.BaseUrl + $"/orders/by-id/{orderId}");
-
-                if (order == null)
-                {
-                    await ShowAlert("Hata", "Servisten veri gelmedi veya hata oluþtu.", "Tamam");
-                    return;
-                }
-
-                if (!order.Bulunan)
-                {
-                    await ShowAlert("Bilgi", "Order bulunamadý.", "Tamam");
-                    return;
-                }
-
-                // Order bulundu, DisplayAlert ile göster
-                string message =
-                    $"Order ID: {order.Order?.Id}\n" +
-                    $"Ürün: {order.Order?.ProductName}\n" +
-                    $"Adet: {order.Order?.Quantity}\n" +
-                    $"Fiyat: {order.Order?.Price}\n" +
-                    $"Durum: {order.Order?.Status}";
-
-                await ShowAlert("Order Detaylarý", message, "Tamam");
-            }
-            catch (Exception ex)
-            {
-                await ShowAlert("Hata", $"Order çekilirken bir hata oluþtu: {ex.Message}", "Tamam");
-            }
+            
         }
 
         #endregion
@@ -1052,47 +846,7 @@ namespace ArcTriggerUI.Dashboard
 
         private async void OnCreateOrdersClicked(object sender, EventArgs e)
         {
-            try
-            {
-                string oldconid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
-                string conid = _lastConId.ToString(CultureInfo.InvariantCulture);
-
-                // Ondalýk deðerleri parse ederken InvariantCulture kullan
-                double trigger = double.Parse(TriggerEntry.Text, CultureInfo.InvariantCulture);
-                double offset = double.Parse(OffsetEntry.Text, CultureInfo.InvariantCulture);
-                double positionSize = double.Parse(PositionEntry.Text, CultureInfo.InvariantCulture);
-                double stopLoss = double.Parse(StopLossEntry.Text, CultureInfo.InvariantCulture);
-
-                string orderMode = _orderMode;
-                string tif = ExpPicker.SelectedItem.ToString();
-
-
-                // Query string oluþtur
-                var url = Configs.BaseUrl + $"/orderUI?" +
-                          $"oldconid={oldconid}" +
-                          $"&conid={conid}" +
-                          $"&trigger={trigger.ToString(CultureInfo.InvariantCulture)}" +
-                          $"&orderMode={orderMode}" +
-                          $"&offset={offset.ToString(CultureInfo.InvariantCulture)}" +
-                          $"&positionSize={positionSize.ToString(CultureInfo.InvariantCulture)}" +
-                          $"&stopLoss={stopLoss.ToString(CultureInfo.InvariantCulture)}" +
-                          $"&tif={tif}";
-
-                // POST request (body null)
-                var response = await _apiService.PostAsync<object, object>(url, null);
-
-                // Response’u JSON string olarak göster
-                var jsonString = JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true });
-
-                await ShowAlert("API Response", jsonString, "Tamam");
-
-
-            }
-
-            catch (Exception ex)
-            {
-                await ShowAlert("Exception", ex.Message, "Tamam");
-            }
+           
 
         }
 
@@ -1182,376 +936,25 @@ namespace ArcTriggerUI.Dashboard
         // symbols text için: API’den öneri çekme + conid + companyHeader yakalama
         private async Task FetchAndBindSymbolSuggestionsAsync(string query, CancellationToken token)
         {
-            // API: /getSymbol -> request body: ResultSymbols { symbol, name(bool), secType }
-            var url = Configs.BaseUrl + "/getSymbol";
-            var request = new ResultSymbols
-            {
-                symbol = query,
-                name = true,     // sunucudan isim bilgisini döndür (DTO bool, response’da string olabilir)
-                secType = "STK"
-            };
-
-            // Response þemasý garanti deðil (DTO’da name bool), bu yüzden JsonElement ile esnek parse
-            List<JsonElement> rawList = await _apiService.PostAsync<ResultSymbols, List<JsonElement>>(url, request);
-
-            // token iptal edildiyse dön
-            if (token.IsCancellationRequested) return;
-
-            var list = new List<SymbolSearchResponse>();
-
-            foreach (var item in rawList)
-            {
-                // symbol
-                string symbol = item.TryGetProperty("symbol", out var sEl) ? (sEl.GetString() ?? "") : "";
-
-                // name (string olabilir / olmayabilir)
-                string? displayName = null;
-                if (item.TryGetProperty("name", out var nEl))
-                {
-                    if (nEl.ValueKind == JsonValueKind.String)
-                        displayName = nEl.GetString();
-                    // bazý servisler "name": true/false döndürebilir, o zaman null býrak
-                }
-
-                // companyheader için: companyHeader yakala
-                string? header = null;
-                if (item.TryGetProperty("companyHeader", out var hEl) && hEl.ValueKind == JsonValueKind.String)
-                {
-                    header = hEl.GetString();
-                }
-
-                // conid (number veya string gelebilir)
-                long? conid = null;
-                if (item.TryGetProperty("conid", out var cEl))
-                {
-                    switch (cEl.ValueKind)
-                    {
-                        case JsonValueKind.Number:
-                            if (cEl.TryGetInt64(out var cnum))
-                                conid = cnum;
-                            break;
-                        case JsonValueKind.String:
-                            if (long.TryParse(cEl.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var cstr))
-                                conid = cstr;
-                            break;
-                    }
-                }
-
-                if (!string.IsNullOrWhiteSpace(symbol))
-                {
-                    if (conid.HasValue)
-                        _symbolConidMap[symbol] = conid.Value; // mevcut davranýþ dursun
-
-                    list.Add(new SymbolSearchResponse
-                    {
-                        symbol = symbol,
-                        name = displayName,
-                        conid = conid,
-                        companyHeader = header // companyheader için
-                    });
-                }
-            }
-
-            // UI’ya bas
-            _symbolResults.Clear();
-            foreach (var it in list.Take(200)) // güvenli sýnýr
-                _symbolResults.Add(it);
-
-            SymbolSuggestions.IsVisible = _symbolResults.Count > 0;
+         
         }
 
-        // marketprice için: seçili sembol/conid’e göre fiyatý çek ve UI’a yaz
-        private async Task UpdateMarketPriceAsync() // marketprice için
+        private async Task UpdateMarketPriceAsync() 
         {
-            try
-            {
-                // Öncelik: conid varsa onu kullan, yoksa sembol string’i kullan
-                string? symbolParam = null;
-                if (_selectedConid.HasValue)
-                {
-                    symbolParam = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
-                }
-                else
-                {
-                    if (StockPicker?.SelectedIndex >= 0 && StockPicker.SelectedIndex < StockPicker.Items.Count)
-                        symbolParam = StockPicker.Items[StockPicker.SelectedIndex];
-                    else
-                        symbolParam = SymbolSearchEntry?.Text;
-                }
+         
 
-                if (string.IsNullOrWhiteSpace(symbolParam))
-                {
-                    ApplyPriceUI(null, null);
-                    return;
-                }
-
-                // /snapshot?symbol={conid or symbol}
-                var url = Configs.BaseUrl.TrimEnd('/') + "/snapshot?symbol=" + Uri.EscapeDataString(symbolParam);
-
-                // debounce/iptal
-                _priceCts?.Cancel();
-                _priceCts = new CancellationTokenSource();
-                var token = _priceCts.Token;
-
-                var response = await _apiService.GetAsync(url);
-                if (token.IsCancellationRequested) return;
-
-                var raw = (response ?? "").Trim();
-
-                // 1) Düz sayý string’i (örn "123.45")
-                if (decimal.TryParse(raw.Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var direct))
-                {
-                    ApplyPriceUI(direct, false);  // kapalý deðil varsayýyoruz (flag yok)
-                    return;
-                }
-
-                // 2) JSON parse (object veya array)
-                if (raw.StartsWith("{") || raw.StartsWith("["))
-                {
-                    using var doc = JsonDocument.Parse(raw);
-                    var root = doc.RootElement;
-
-                    // --- ÖZEL DÝZÝ FORMATI: [ <number>, { ... } ] ---
-                    if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
-                    {
-                        decimal? arrayPrice = null;
-                        bool? arrayMarketClosed = null;
-
-                        // Ýlk eleman sayý ise
-                        var first = root[0];
-                        if (first.ValueKind == JsonValueKind.Number && first.TryGetDecimal(out var arrNum))
-                            arrayPrice = arrNum;
-
-                        // Ýkinci eleman object ise (flag ve/veya last vb burada)
-                        if (root.GetArrayLength() >= 2 && root[1].ValueKind == JsonValueKind.Object)
-                        {
-                            var second = root[1];
-
-                            // market_closed bayraðý
-                            arrayMarketClosed = TryExtractBool(second, "market_closed", "marketClosed", "isMarketClosed");
-
-                            // fiyat anahtarlarý
-                            string[] priceKeys = { "marketPrice", "last", "lastPrice", "mark", "mid", "close", "price", "p" };
-                            if (TryExtractDecimal(second, priceKeys, out var objPrice))
-                            {
-                                arrayPrice = objPrice;
-                            }
-                            else
-                            {
-                                // bid/ask’tan mid dene
-                                var bid = TryExtractOneOf(second, "bid", "bestBid", "b");
-                                var ask = TryExtractOneOf(second, "ask", "bestAsk", "a");
-                                if (bid.HasValue && ask.HasValue)
-                                    arrayPrice = (bid.Value + ask.Value) / 2m;
-                                else if (bid.HasValue && !ask.HasValue)
-                                    arrayPrice ??= bid.Value; // en azýndan bid’i göster
-                            }
-                        }
-
-                        ApplyPriceUI(arrayPrice, arrayMarketClosed);
-                        return;
-                    }
-
-                    // --- Genel durum: object (veya farklý yapý) ---
-                    {
-                        bool marketClosed =
-                            TryExtractBool(root, "market_closed", "marketClosed", "isMarketClosed") ||
-                            (root.TryGetProperty("data", out var dEl) && TryExtractBool(dEl, "market_closed", "marketClosed", "isMarketClosed")) ||
-                            (root.TryGetProperty("quote", out var qEl) && TryExtractBool(qEl, "market_closed", "marketClosed", "isMarketClosed"));
-
-                        string[] priceKeys = { "marketPrice", "last", "lastPrice", "mark", "mid", "close", "price", "p" };
-
-                        if (TryExtractDecimal(root, priceKeys, out var price) ||
-                            (root.TryGetProperty("data", out var dataObj) && TryExtractDecimal(dataObj, priceKeys, out price)) ||
-                            (root.TryGetProperty("quote", out var quoteObj) && TryExtractDecimal(quoteObj, priceKeys, out price)))
-                        {
-                            ApplyPriceUI(price, marketClosed);
-                            return;
-                        }
-
-                        // Fiyat yoksa bid/ask’tan mid dene
-                        decimal? bid = TryExtractOneOf(root, "bid", "bestBid", "b");
-                        decimal? ask = TryExtractOneOf(root, "ask", "bestAsk", "a");
-
-                        if (!bid.HasValue && root.TryGetProperty("data", out var d1))
-                        {
-                            bid ??= TryExtractOneOf(d1, "bid", "bestBid", "b");
-                            ask ??= TryExtractOneOf(d1, "ask", "bestAsk", "a");
-                        }
-                        if (!bid.HasValue && root.TryGetProperty("quote", out var q1))
-                        {
-                            bid ??= TryExtractOneOf(q1, "bid", "bestBid", "b");
-                            ask ??= TryExtractOneOf(q1, "ask", "bestAsk", "a");
-                        }
-
-                        if (bid.HasValue && ask.HasValue)
-                        {
-                            var mid = (bid.Value + ask.Value) / 2m;
-                            ApplyPriceUI(mid, marketClosed);
-                            return;
-                        }
-                        if (bid.HasValue) // en azýndan bid göster
-                        {
-                            ApplyPriceUI(bid.Value, marketClosed);
-                            return;
-                        }
-                    }
-                }
-
-                // Hiçbiri olmadýysa
-                ApplyPriceUI(null, null);
-            }
-            catch
-            {
-                ApplyPriceUI(null, null);
-            }
-
-            // ---- helpers (marketprice için) ----
-            static bool TryExtractDecimal(JsonElement el, string[] names, out decimal val)
-            {
-                foreach (var n in names)
-                {
-                    if (el.TryGetProperty(n, out var p))
-                    {
-                        if (p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out val))
-                            return true;
-                        if (p.ValueKind == JsonValueKind.String &&
-                            decimal.TryParse((p.GetString() ?? "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out val))
-                            return true;
-                    }
-                }
-                val = 0m; return false;
-            }
-
-            static decimal? TryExtractOneOf(JsonElement el, params string[] names)
-            {
-                foreach (var n in names)
-                {
-                    if (el.TryGetProperty(n, out var p))
-                    {
-                        if (p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var d)) return d;
-                        if (p.ValueKind == JsonValueKind.String &&
-                            decimal.TryParse((p.GetString() ?? "").Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out var ds))
-                            return ds;
-                    }
-                }
-                return null;
-            }
-
-            static bool TryExtractBool(JsonElement el, params string[] names)
-            {
-                foreach (var n in names)
-                {
-                    if (el.TryGetProperty(n, out var p))
-                    {
-                        if (p.ValueKind == JsonValueKind.True) return true;
-                        if (p.ValueKind == JsonValueKind.False) return false;
-                        if (p.ValueKind == JsonValueKind.String)
-                        {
-                            var s = p.GetString();
-                            if (bool.TryParse(s, out var b)) return b;
-                            if (string.Equals(s, "1") || string.Equals(s, "yes", StringComparison.OrdinalIgnoreCase)) return true;
-                            if (string.Equals(s, "0") || string.Equals(s, "no", StringComparison.OrdinalIgnoreCase)) return false;
-                        }
-                        if (p.ValueKind == JsonValueKind.Number)
-                        {
-                            if (p.TryGetInt32(out var num)) return num != 0;
-                        }
-                    }
-                }
-                return false;
-            }
+          
         }
 
-        // ===========================
-        // SECDEF: symbol -> secTypes
-        // ===========================
         private async Task LoadSecTypesForCurrentAsync()
         {
-            try
-            {
-                if (!_selectedConid.HasValue) return;
-
-                var symbolText = StockPicker?.SelectedIndex >= 0
-                    ? StockPicker.Items[StockPicker.SelectedIndex]
-                    : (SymbolSearchEntry?.Text ?? string.Empty);
-
-                if (string.IsNullOrWhiteSpace(symbolText)) return;
-
-                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/conid/info";
-                var req = new { conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture), symbol = symbolText };
-
-                var resp = await _apiService.PostAsync<object, ConidInfoResponse>(url, req);
-
-                _secdefSecTypes = (resp?.secTypes ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-
-                SecTypePicker.Items.Clear();
-                foreach (var st in _secdefSecTypes)
-                    SecTypePicker.Items.Add(st);
-
-                if (_secdefSecTypes.Count > 0)
-                    SecTypePicker.SelectedIndex = 0;
-
-                MonthsPicker.Items.Clear();
-                _secdefMonths.Clear();
-                _secdefExchanges.Clear();
-            }
-            catch
-            {
-                SecTypePicker.Items.Clear();
-                MonthsPicker.Items.Clear();
-                _secdefSecTypes.Clear();
-                _secdefMonths.Clear();
-                _secdefExchanges.Clear();
-            }
+          
         }
 
-        // ==================================
-        // SECDEF: secType -> months/exchanges
-        // ==================================
-        // XAML -> SecTypePicker.SelectedIndexChanged="OnSecTypeChanged"
+      
         private async void OnSecTypeChanged(object sender, EventArgs e)
         {
-            try
-            {
-                if (SecTypePicker.SelectedIndex < 0) return;
-                if (!_selectedConid.HasValue) return;
-
-                var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
-                SecTypePicker.Title = secType;
-                _currentSecType = secType;
-
-                var symbolText = StockPicker?.SelectedIndex >= 0
-                    ? StockPicker.Items[StockPicker.SelectedIndex]
-                    : (SymbolSearchEntry?.Text ?? string.Empty);
-
-                if (string.IsNullOrWhiteSpace(symbolText)) return;
-
-                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/sectype/info";
-                var req = new { conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture), symbol = symbolText, secType = secType };
-
-                var resp = await _apiService.PostAsync<object, SecTypeDetailResponse>(url, req);
-
-                _secdefMonths = (resp?.months ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-                _secdefExchanges = (resp?.exchanges ?? new List<string>()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-
-                MonthsPicker.Items.Clear();
-                foreach (var m in _secdefMonths)
-                    MonthsPicker.Items.Add(m);
-
-                if (_secdefMonths.Count > 0)
-                    MonthsPicker.SelectedIndex = 0;
-
-
-            }
-            catch
-            {
-                MonthsPicker.Items.Clear();
-                _secdefMonths.Clear();
-                _secdefExchanges.Clear();
-
-            }
-            _currentExchange = PickBestExchange(_secdefExchanges);
+           
         }
         private string PickBestExchange(List<string> exchanges)
         {
@@ -1567,49 +970,7 @@ namespace ArcTriggerUI.Dashboard
         // XAML -> MonthsPicker.SelectedIndexChanged="OnMonthChanged"
         private async void OnMonthChanged(object sender, EventArgs e)
         {
-            try
-            {
-                if (MonthsPicker.SelectedIndex < 0) return;
-                if (SecTypePicker.SelectedIndex < 0) return;
-                if (!_selectedConid.HasValue) return;
-
-                var month = MonthsPicker.Items[MonthsPicker.SelectedIndex];
-                MonthsPicker.Title = month;
-                _currentMonth = month;
-                ClearMaturityUI();
-
-
-                // her ay deðiþtiðinde strike listesini temizleyelim ki üst üste eklenmesin
-                StrikesPicker.Items.Clear();
-                var secType = SecTypePicker.Items[SecTypePicker.SelectedIndex];
-                var exchange = _currentExchange ?? string.Empty;
-                _currentExchange = exchange;
-                var conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
-                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/strikes"
-    + $"?conid={conid}&secType={Uri.EscapeDataString(secType)}&month={Uri.EscapeDataString(month)}";
-                if (!string.IsNullOrWhiteSpace(exchange))
-                    url += $"&exchange={Uri.EscapeDataString(exchange)}";
-
-                var resp = await _apiService.GetAsync(url);
-                var json = resp;
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var strikesData = JsonSerializer.Deserialize<StrikesResponses>(json, options);
-                var strikes = new List<decimal>();
-                if (strikesData != null)
-                {
-                    strikes.AddRange(strikesData.Call);
-                    strikes.AddRange(strikesData.Put);
-
-                }
-                _lastStrikes = strikesData ?? new StrikesResponses();
-                RebuildStrikesPicker();
-
-                //ApplyStrikesToUI(strikes);
-            }
-            catch (Exception)
-            {
-                // yoksay
-            }
+           
         }
         private void RebuildStrikesPicker()
         {
@@ -1646,189 +1007,7 @@ namespace ArcTriggerUI.Dashboard
         }
         private async Task LoadMaturityDateForSelectionAsync()
         {
-            try
-            {
-                if (!_selectedConid.HasValue) return;
-                if (string.IsNullOrWhiteSpace(_currentSecType)) return;
-                if (string.IsNullOrWhiteSpace(_currentMonth)) return;
-                if (StrikesPicker.SelectedIndex < 0) return;
-
-                var conid = _selectedConid.Value.ToString(CultureInfo.InvariantCulture);
-                var secType = _currentSecType;
-                var month = _currentMonth;
-                var exchange = _currentExchange ?? string.Empty;
-
-                // strike normalize
-                var strikeText = StrikesPicker.SelectedItem?.ToString();
-                if (string.IsNullOrWhiteSpace(strikeText)) return;
-
-                if (!decimal.TryParse(strikeText, NumberStyles.Any, CultureInfo.InvariantCulture, out var strikeDec) &&
-                    !decimal.TryParse(strikeText, NumberStyles.Any, new CultureInfo("tr-TR"), out strikeDec))
-                    return;
-
-                var strikeParam = strikeDec.ToString(CultureInfo.InvariantCulture);
-
-                // URL
-                var qs = new List<string>
-        {
-            "conid="   + Uri.EscapeDataString(conid),
-            "secType=" + Uri.EscapeDataString(secType),
-            "month="   + Uri.EscapeDataString(month),
-            "strike="  + Uri.EscapeDataString(strikeParam),
-            "right="   + Uri.EscapeDataString(_currentRight)
-        };
-                if (!string.IsNullOrWhiteSpace(exchange))
-                    qs.Add("exchange=" + Uri.EscapeDataString(exchange));
-
-                var url = Configs.BaseUrl.TrimEnd('/') + "/secdef/info?" + string.Join("&", qs);
-
-                var raw = await _apiService.GetAsync(url);
-                if (string.IsNullOrWhiteSpace(raw))
-                {
-                    SetMaturityUI(Array.Empty<string>());
-                    return;
-                }
-
-                var maturities = new List<string>();
-                var lastConids = new List<string>();
-
-                try
-                {
-                    using var doc = JsonDocument.Parse(raw);
-                    var root = doc.RootElement;
-
-                    if (root.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var item in root.EnumerateArray())
-                        {
-                            if (item.ValueKind == JsonValueKind.Object)
-                            {
-                                // maturityDate
-                                if (item.TryGetProperty("maturityDate", out var m) && m.ValueKind == JsonValueKind.String)
-                                {
-                                    var s = m.GetString();
-                                    if (!string.IsNullOrWhiteSpace(s))
-                                        maturities.Add(s!);
-                                }
-
-                                // conid (lastConid)
-                                if (item.TryGetProperty("conid", out var c) &&
-                                    (c.ValueKind == JsonValueKind.Number || c.ValueKind == JsonValueKind.String))
-                                {
-                                    string conidValue = c.ValueKind == JsonValueKind.Number ? c.GetInt64().ToString() : c.GetString()!;
-                                    lastConids.Add(conidValue);
-                                    _lastConId = conidValue;
-                                }
-                            }
-                        }
-                    }
-
-                    // fallback
-                    if (maturities.Count == 0)
-                    {
-                        string? one = ExtractMaturityAny(root)
-                                      ?? (root.TryGetProperty("data", out var dataEl) ? ExtractMaturityAny(dataEl) : null)
-                                      ?? (root.TryGetProperty("quote", out var quoteEl) ? ExtractMaturityAny(quoteEl) : null);
-                        if (!string.IsNullOrWhiteSpace(one))
-                            maturities.Add(one!);
-                    }
-                }
-                catch
-                {
-                    var t = raw.Trim('"');
-                    if (!string.IsNullOrWhiteSpace(t)) maturities.Add(t);
-                }
-
-                // normalize + distinct + sýralama
-                var normalizedMaturities = maturities
-                    .Select(NormalizeMaturityDate)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct(StringComparer.Ordinal)
-                    .OrderBy(x => x)
-                    .ToList();
-
-                var normalizedConids = lastConids.Distinct().ToList();
-
-                SetMaturityUI(normalizedMaturities);
-            }
-            catch
-            {
-                SetMaturityUI(Array.Empty<string>());
-            }
-
-            // ---- helpers ----
-            static string? ExtractMaturityAny(JsonElement el)
-            {
-                string[] keys = { "maturityDate", "maturity", "expiryDate", "expiry", "expirationDate", "expiration" };
-                foreach (var k in keys)
-                {
-                    if (el.TryGetProperty(k, out var p))
-                    {
-                        if (p.ValueKind == JsonValueKind.String) return p.GetString();
-                        if (p.ValueKind == JsonValueKind.Number && p.TryGetInt64(out var num))
-                        {
-                            var dt = (num > 9999999999)
-                                ? DateTimeOffset.FromUnixTimeMilliseconds(num).UtcDateTime
-                                : DateTimeOffset.FromUnixTimeSeconds(num).UtcDateTime;
-                            return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                        }
-                    }
-                }
-                return null;
-            }
-
-            static string? NormalizeMaturityDate(string? raw)
-            {
-                if (string.IsNullOrWhiteSpace(raw)) return null;
-                var t = raw.Trim();
-
-                if (DateTime.TryParse(t, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt))
-                    return dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-
-                if (t.Length == 8 && t.All(char.IsDigit))
-                {
-                    var y = int.Parse(t[..4]);
-                    var m = int.Parse(t.Substring(4, 2));
-                    var d = int.Parse(t.Substring(6, 2));
-                    return new DateTime(y, m, d, 0, 0, 0, DateTimeKind.Utc).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                }
-
-                if (long.TryParse(t, out var num))
-                {
-                    var dt2 = (num > 9999999999)
-                        ? DateTimeOffset.FromUnixTimeMilliseconds(num).UtcDateTime
-                        : DateTimeOffset.FromUnixTimeSeconds(num).UtcDateTime;
-                    return dt2.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                }
-
-                return t;
-            }
-
-            void SetMaturityUI(IEnumerable<string> maturities)
-            {
-                var matList = maturities?.ToList() ?? new List<string>();
-
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
-                    MaturityDateLabel.Items.Clear();
-
-                    if (matList.Count == 0)
-                    {
-                        MaturityDateLabel.Title = "—";
-                        MaturityDateLabel.SelectedIndex = -1;
-                    }
-                    else
-                    {
-                        foreach (var m in matList)
-                        {
-                            MaturityDateLabel.Items.Add(m);
-                        }
-
-                        MaturityDateLabel.SelectedIndex = 0;
-                        MaturityDateLabel.Title = matList[0];
-                    }
-                });
-            }
+           
 
         }
 

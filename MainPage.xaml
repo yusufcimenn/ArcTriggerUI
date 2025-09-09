@@ -36,7 +36,7 @@
         BackgroundColor="#D10000"
         TextColor="White"
         Padding="0"
-        Clicked="OnAddOrderClicked" />
+       Clicked="OnAddOrderClicked" />
 
                 <!-- OrderFrame konteyneri -->
         

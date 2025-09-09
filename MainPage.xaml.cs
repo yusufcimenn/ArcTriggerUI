@@ -1,5 +1,7 @@
 ﻿using ArcTriggerUI.Dashboard;
 using ArcTriggerUI.Interfaces;
+using ArcTriggerUI.Services;
+using ArcTriggerV2.Core.Services;
 using Microsoft.Maui;
 
 namespace ArcTriggerUI
@@ -7,13 +9,14 @@ namespace ArcTriggerUI
     public partial class MainPage : ContentPage
     {
         private readonly IApiService _apiService;
+        private readonly TwsService _twsService;
         private bool _isDark = false; // dark/light toggle state
 
-        public MainPage(IApiService apiService)
+        public MainPage(IApiService apiService,TwsService twsService)
         {
             InitializeComponent();
             _apiService = apiService;
-
+            _twsService = twsService;
             // Başlangıçta temaya göre toolbar ayarla
             var app = Application.Current;
             if (app is not null)
@@ -41,17 +44,18 @@ namespace ArcTriggerUI
 
         private void OnAddOrderClicked(object sender, EventArgs e)
         {
+
             int count = 1; // default
             if (int.TryParse(NumberEntry.Text, out var n) && n > 0)
                 count = n;
 
             for (int i = 0; i < count; i++)
             {
-                var order = new OrderFrame(_apiService);
+                var order = new OrderFrame(_twsService);
                 OrdersContainer.Children.Add(order);
             }
         }
-
+     
         private void OnToggleThemeClicked(object sender, EventArgs e)
         {
             var app = Application.Current;
