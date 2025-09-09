@@ -1,7 +1,7 @@
 ﻿using ArcTriggerUI.Dashboard;
 using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
-using ArcTriggerV2.Core.Services;
+using ArcTriggerUI.Tws.Services;
 using Microsoft.Maui;
 
 namespace ArcTriggerUI
