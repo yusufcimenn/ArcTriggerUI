@@ -130,6 +130,7 @@ namespace ArcTriggerUI.Dashboard
         }
         private ObservableCollection<SymbolDisplay> _symbolResults = new();
         private List<SymbolMatch> _allSymbolMatches = new();
+        private List<string>SecTypeStk = new();
         public OrderFrame(TwsService twsService)
         {
 
@@ -712,7 +713,7 @@ namespace ArcTriggerUI.Dashboard
         #endregion
         #region Api Request || Api �stek 
 
-
+        
         private async Task SymbolAPI(string value)
         {
             _symbolResults.Clear();
@@ -734,6 +735,7 @@ namespace ArcTriggerUI.Dashboard
                         Display = r.Symbol + " " + r.Description
                     });
                     _allSymbolMatches.Add(r);
+                    SecTypeStk.Add(r.SecType);
                 }
 
                 // Listeyi g�ster / gizle
@@ -763,14 +765,27 @@ namespace ArcTriggerUI.Dashboard
                     // ConId üzerinden derivative sec type’ları al
                     _selectedConId = match.ConId;
                     _selectedSymbol = match.Symbol;
-                    
+                    _selectedSectype = match.SecType;
+
                     // Eğer ConId’ye göre TWS’den secType’ları alacak başka bir API çağrısı varsa onu kullan
                     // Örnek: GetOptionParamsAsync veya benzeri
                     // _selectedDerivativeSecTypes = await _twsService.GetSecTypesByConIdAsync(conId);
 
                     // �u an elimizde SymbolMatch i�indeki DerivativeSecTypes var
+                    _selectedDerivativeSecTypes.Add(_selectedSectype);
                     _selectedDerivativeSecTypes = match.DerivativeSecTypes.ToList();
+                    if (!string.IsNullOrEmpty(_selectedSectype) &&
+    !_selectedDerivativeSecTypes.Contains(_selectedSectype))
+                    {
+                        _selectedDerivativeSecTypes.Add(_selectedSectype);
+                    }
 
+                    // Default değer (örnek: "STK") en başa ekle
+                    const string defaultSecType = "STK";
+                    if (!_selectedDerivativeSecTypes.Contains(defaultSecType))
+                    {
+                        _selectedDerivativeSecTypes.Insert(0, defaultSecType);
+                    }
                     // Picker�a ata
                     SecTypePicker.ItemsSource = _selectedDerivativeSecTypes;
                     //if (_selectedDerivativeSecTypes.Count > 0)
