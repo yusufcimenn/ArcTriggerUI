@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using CommunityToolkit.Maui;
 using ArcTriggerUI.Pages;
-using ArcTriggerV2.Core.Services;
+using ArcTriggerUI.Tws.Services;
 
 
 
