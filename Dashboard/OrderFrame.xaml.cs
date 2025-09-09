@@ -980,7 +980,7 @@ namespace ArcTriggerUI.Dashboard
         // XAML -> MonthsPicker.SelectedIndexChanged="OnMonthChanged"
         private async void OnMonthChanged(object sender, EventArgs e)
         {
-
+            
         }
         private void RebuildStrikesPicker()
         {
