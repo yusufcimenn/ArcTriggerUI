@@ -275,7 +275,7 @@
                                     <Picker x:Name="SecTypePicker"
                                         Title=""
                                         WidthRequest="100"
-                                        SelectedIndexChanged="OnSecTypeChanged" />
+                                        SelectedIndexChanged="LoadOptionParams_Clicked" />
                                  
                                 </VerticalStackLayout>
 
@@ -294,8 +294,15 @@
                                     <Label Text="Strike" Style="{StaticResource HeaderLabel}"/>
                                     <Picker x:Name="StrikesPicker" 
                                             Title=""
-                                            WidthRequest="100"
-                                            SelectedIndexChanged="StrikesPicker_SelectedIndexChanged"/>
+                                       
+
+                                        WidthRequest="100"
+                                            SelectedIndexChanged="StrikesPicker_SelectedIndexChanged">
+                                        <Picker.Items>
+                                            <x:String>STK</x:String>
+                                        
+                                        </Picker.Items>
+                                    </Picker>
 
                                 </VerticalStackLayout>
 

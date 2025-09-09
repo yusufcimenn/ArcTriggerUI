@@ -50,7 +50,9 @@ namespace ArcTriggerUI.Dashboard
         private const string PrefKey = "possize.hotbuttons.v1";
         #endregion
 
-
+        private int? _selectedConId;
+        private string? _selectedSymbol;
+        private string? _selectedSectype;
         private double positionSize;
         private double trigger;
         private string? _currentSecType;
@@ -67,10 +69,10 @@ namespace ArcTriggerUI.Dashboard
 
         // symbols text i�in: sembol -> conid e�lemesi ve se�ilen conid
         private readonly Dictionary<string, long> _symbolConidMap = new(StringComparer.OrdinalIgnoreCase);
-        private long? _selectedConid = null;
+        
 
-        // marketprice i�in: fiyat isteklerini y�netmek i�in CTS
-        private CancellationTokenSource? _priceCts; // marketprice i�in
+        // marketprice için: fiyat isteklerini yönetmek için CTS
+        private CancellationTokenSource? _priceCts; // marketprice için
 
         // symbols text i�in: �neri ��esi (conid eklendi)
         public class SymbolSearchResponse
@@ -758,11 +760,12 @@ namespace ArcTriggerUI.Dashboard
                 var match = _allSymbolMatches.FirstOrDefault(s => s.Symbol == symbolText);
                 if (match != null)
                 {
-                    // ConId �zerinden derivative sec type�lar� al
-                    int conId = match.ConId;
-
-                    // E�er ConId�ye g�re TWS�den secType�lar� alacak ba�ka bir API �a�r�s� varsa onu kullan
-                    // �rnek: GetOptionParamsAsync veya benzeri
+                    // ConId üzerinden derivative sec type’ları al
+                    _selectedConId = match.ConId;
+                    _selectedSymbol = match.Symbol;
+                    
+                    // Eğer ConId’ye göre TWS’den secType’ları alacak başka bir API çağrısı varsa onu kullan
+                    // Örnek: GetOptionParamsAsync veya benzeri
                     // _selectedDerivativeSecTypes = await _twsService.GetSecTypesByConIdAsync(conId);
 
                     // �u an elimizde SymbolMatch i�indeki DerivativeSecTypes var
@@ -770,8 +773,8 @@ namespace ArcTriggerUI.Dashboard
 
                     // Picker�a ata
                     SecTypePicker.ItemsSource = _selectedDerivativeSecTypes;
-                    if (_selectedDerivativeSecTypes.Count > 0)
-                        SecTypePicker.SelectedIndex = 0; // �lk ��eyi se�ili yap
+                    //if (_selectedDerivativeSecTypes.Count > 0)
+                    //    SecTypePicker.SelectedIndex = 0; // İlk öğeyi seçili yap
                 }
                 else
                 {
@@ -783,64 +786,49 @@ namespace ArcTriggerUI.Dashboard
                 Console.WriteLine($"ConId {match?.ConId}: " + string.Join(", ", _selectedDerivativeSecTypes));
             }
         }
-        private async void OnGetTickleClicked(object sender, EventArgs e)
+
+        private async void LoadOptionParams_Clicked(object sender, EventArgs e)
         {
+            if (_selectedConId == null || string.IsNullOrEmpty(_selectedSymbol))
+            {
+                Console.WriteLine("Hata", "Lütfen önce bir symbol seçin.", "OK");
+                return;
+            }
 
+            if (SecTypePicker.SelectedItem == null)
+                return;
 
+            try
+            {
+                // Kullanıcının seçtiği secType’ı güncelle
+                _selectedSectype = SecTypePicker.SelectedItem.ToString();
+
+                var optionParams = await _twsService.GetOptionParamsAsync(
+                    _selectedConId.Value,
+                    _selectedSymbol,
+                    _selectedSectype,
+                    "SMART"
+                );
+
+                // Expiration listelerini topla
+                var expirations = optionParams
+                    .SelectMany(p => p.Expirations)
+                    .Distinct()
+                    .OrderBy(d => d)
+                    .ToList();
+
+                MaturityDateLabel.ItemsSource = expirations;
+
+                if (expirations.Count > 0)
+                    MaturityDateLabel.SelectedIndex = 0; // ilk expiration seçili gelsin
+            }
+            catch (Exception ex)
+            {
+                 Console.WriteLine("Hata", ex.Message, "OK");
+            }
         }
 
-        private async void OnGetStatusClicked(object sender, EventArgs e)
-        {
 
-        }
-
-        private async void OnPostSymbolClicked(object sender, EventArgs e)
-        {
-
-        }
-
-
-        private async void OnDeleteOrderClicked(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OnSecdefStrikeClicked(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OngGetSecdef(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OnGetInfoClicked(object sender, EventArgs e)
-        {
-
-        }
-
-
-        // �rnek buton click event
-        private async void OnGetPortfolioClicked(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void LoadOrders(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OnPostOrderClicked(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OnGetOrdersClicked(object sender, EventArgs e)
-        {
-
-        }
 
         #endregion
 
