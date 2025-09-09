@@ -49,7 +49,9 @@ namespace ArcTriggerUI.Dashboard
         private const string PrefKey = "possize.hotbuttons.v1";
         #endregion
 
-
+        private int? _selectedConId;
+        private string? _selectedSymbol;
+        private string? _selectedSectype;
         private double positionSize;
         private double trigger;
         private string? _currentSecType;
@@ -66,7 +68,7 @@ namespace ArcTriggerUI.Dashboard
 
         // symbols text için: sembol -> conid eþlemesi ve seçilen conid
         private readonly Dictionary<string, long> _symbolConidMap = new(StringComparer.OrdinalIgnoreCase);
-        private long? _selectedConid = null;
+        
 
         // marketprice için: fiyat isteklerini yönetmek için CTS
         private CancellationTokenSource? _priceCts; // marketprice için
@@ -758,8 +760,9 @@ namespace ArcTriggerUI.Dashboard
                 if (match != null)
                 {
                     // ConId üzerinden derivative sec type’larý al
-                    int conId = match.ConId;
-
+                    _selectedConId = match.ConId;
+                    _selectedSymbol = match.Symbol;
+                    
                     // Eðer ConId’ye göre TWS’den secType’larý alacak baþka bir API çaðrýsý varsa onu kullan
                     // Örnek: GetOptionParamsAsync veya benzeri
                     // _selectedDerivativeSecTypes = await _twsService.GetSecTypesByConIdAsync(conId);
@@ -769,8 +772,8 @@ namespace ArcTriggerUI.Dashboard
 
                     // Picker’a ata
                     SecTypePicker.ItemsSource = _selectedDerivativeSecTypes;
-                    if (_selectedDerivativeSecTypes.Count > 0)
-                        SecTypePicker.SelectedIndex = 0; // Ýlk öðeyi seçili yap
+                    //if (_selectedDerivativeSecTypes.Count > 0)
+                    //    SecTypePicker.SelectedIndex = 0; // Ýlk öðeyi seçili yap
                 }
                 else
                 {
@@ -782,64 +785,49 @@ namespace ArcTriggerUI.Dashboard
                 Console.WriteLine($"ConId {match?.ConId}: " + string.Join(", ", _selectedDerivativeSecTypes));
             }
         }
-        private async void OnGetTickleClicked(object sender, EventArgs e)
+
+        private async void LoadOptionParams_Clicked(object sender, EventArgs e)
         {
+            if (_selectedConId == null || string.IsNullOrEmpty(_selectedSymbol))
+            {
+                Console.WriteLine("Hata", "Lütfen önce bir symbol seçin.", "OK");
+                return;
+            }
 
+            if (SecTypePicker.SelectedItem == null)
+                return;
 
+            try
+            {
+                // Kullanýcýnýn seçtiði secType’ý güncelle
+                _selectedSectype = SecTypePicker.SelectedItem.ToString();
+
+                var optionParams = await _twsService.GetOptionParamsAsync(
+                    _selectedConId.Value,
+                    _selectedSymbol,
+                    _selectedSectype,
+                    "SMART"
+                );
+
+                // Expiration listelerini topla
+                var expirations = optionParams
+                    .SelectMany(p => p.Expirations)
+                    .Distinct()
+                    .OrderBy(d => d)
+                    .ToList();
+
+                MaturityDateLabel.ItemsSource = expirations;
+
+                if (expirations.Count > 0)
+                    MaturityDateLabel.SelectedIndex = 0; // ilk expiration seçili gelsin
+            }
+            catch (Exception ex)
+            {
+                 Console.WriteLine("Hata", ex.Message, "OK");
+            }
         }
 
-        private async void OnGetStatusClicked(object sender, EventArgs e)
-        {
 
-        }
-
-        private async void OnPostSymbolClicked(object sender, EventArgs e)
-        {
-
-        }
-
-
-        private async void OnDeleteOrderClicked(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OnSecdefStrikeClicked(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OngGetSecdef(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OnGetInfoClicked(object sender, EventArgs e)
-        {
-
-        }
-
-
-        // Örnek buton click event
-        private async void OnGetPortfolioClicked(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void LoadOrders(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OnPostOrderClicked(object sender, EventArgs e)
-        {
-
-        }
-
-        private async void OnGetOrdersClicked(object sender, EventArgs e)
-        {
-
-        }
 
         #endregion
 
