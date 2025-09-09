@@ -4,6 +4,7 @@ using ArcTriggerUI.Dtos;
 using ArcTriggerUI.Dtos.Orders;
 using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
+using ArcTriggerV2.Core.Models;
 using ArcTriggerV2.Core.Services;
 using Microsoft.Maui.ApplicationModel;         // MainThread
 using Microsoft.Maui.Controls;                 // MAUI Controls
@@ -48,7 +49,7 @@ namespace ArcTriggerUI.Dashboard
         private const string PrefKey = "possize.hotbuttons.v1";
         #endregion
 
-    
+
         private double positionSize;
         private double trigger;
         private string? _currentSecType;
@@ -60,7 +61,7 @@ namespace ArcTriggerUI.Dashboard
         private StrikesResponses _lastStrikes; // month deðiþtiðinde gelen set'i tut
 
         // symbols text için: arama sonucu listesi ve debounce/iptal için CTS
-        private readonly ObservableCollection<SymbolSearchResponse> _symbolResults = new();
+
         private CancellationTokenSource? _symbolCts;
 
         // symbols text için: sembol -> conid eþlemesi ve seçilen conid
@@ -120,17 +121,32 @@ namespace ArcTriggerUI.Dashboard
             public bool? showPrips { get; set; }
         }
         private readonly TwsService _twsService;
-     
-        public OrderFrame(TwsService twsService )
+        public class SymbolDisplay
+        {
+            public string Display { get; set; }
+        }
+        private ObservableCollection<SymbolDisplay> _symbolResults = new();
+        private List<SymbolMatch> _allSymbolMatches = new();
+        public OrderFrame(TwsService twsService)
         {
 
             InitializeComponent();
             InitHotSections();
-            
-            _twsService = twsService;           
+           
+            _twsService = twsService;
             twsService.ConnectAsync("127.0.0.1", 7497, 0);
 
             SymbolSuggestions.ItemsSource = _symbolResults;
+
+            // Seçim yapýldýðýnda Entry'ye yaz
+            SymbolSuggestions.SelectionChanged += (s, e) =>
+            {
+                if (e.CurrentSelection.FirstOrDefault() is SymbolDisplay selected)
+                {
+                    SymbolSearchEntry.Text = selected.Display;
+                    SymbolSuggestions.IsVisible = false; // seçim sonrasý listeyi kapat
+                }
+            };
             var panGesture = new PanGestureRecognizer();
             panGesture.PanUpdated += (s, e) =>
             {
@@ -152,8 +168,8 @@ namespace ArcTriggerUI.Dashboard
             // >>> fiyatý periyodik çek
             StartPriceAutoRefresh(TimeSpan.FromSeconds(3));
         }
-        
-       
+
+
         private Page? HostPage =>
             Shell.Current?.CurrentPage ??
             Application.Current?.MainPage ??
@@ -451,60 +467,60 @@ namespace ArcTriggerUI.Dashboard
         #region Seçili Sembol || Selected Symbol
         private void OnSymbolChanged(object sender, EventArgs e)
         {
-            if (sender is Picker picker && picker.SelectedIndex != -1)
-            {
-                var symbol = picker.Items[picker.SelectedIndex];
-                Console.WriteLine($"Selected symbol: {symbol}");
+            //if (sender is Picker picker && picker.SelectedIndex != -1)
+            //{
+            //    var symbol = picker.Items[picker.SelectedIndex];
+            //    Console.WriteLine($"Selected symbol: {symbol}");
 
-                // symbols text için: seçilen sembolün conid’sini sözlükten set et
-                if (_symbolConidMap.TryGetValue(symbol, out var cid))
-                {
-                    _selectedConid = cid;
-                }
-                else
-                {
-                    _selectedConid = null; // << yoksa stale conid kalmasýn
-                }
+            //    // symbols text için: seçilen sembolün conid’sini sözlükten set et
+            //    if (_symbolConidMap.TryGetValue(symbol, out var cid))
+            //    {
+            //        _selectedConid = cid;
+            //    }
+            //    else
+            //    {
+            //        _selectedConid = null; // << yoksa stale conid kalmasýn
+            //    }
 
-                // Window baþlýðýna yansýt
-                if (this.Window != null)
-                    this.Window.Title = symbol;
+            //    // Window baþlýðýna yansýt
+            //    if (this.Window != null)
+            //        this.Window.Title = symbol;
 
-                // Picker Title'ýný güncelle
-                picker.Title = symbol;
+            //    // Picker Title'ýný güncelle
+            //    picker.Title = symbol;
 
-                // DisplayLabel güncelle
-                if (this.FindByName<Label>("DisplayLabel") is Label label)
-                {
-                    var currentText = label.Text ?? "";
-                    var lines = currentText.Split(',', StringSplitOptions.None)
-                                           .Select(l => l.Trim())
-                                           .ToList();
+            //    // DisplayLabel güncelle
+            //    if (this.FindByName<Label>("DisplayLabel") is Label label)
+            //    {
+            //        var currentText = label.Text ?? "";
+            //        var lines = currentText.Split(',', StringSplitOptions.None)
+            //                               .Select(l => l.Trim())
+            //                               .ToList();
 
-                    bool stockUpdated = false;
-                    for (int i = 0; i < lines.Count; i++)
-                    {
-                        if (lines[i].StartsWith("Symbol:"))
-                        {
-                            lines[i] = $"Symbol: {symbol}";
-                            stockUpdated = true;
-                            break;
-                        }
-                    }
-                    if (!stockUpdated)
-                    {
-                        lines.Insert(0, $"Symbol: {symbol}");
-                    }
+            //        bool stockUpdated = false;
+            //        for (int i = 0; i < lines.Count; i++)
+            //        {
+            //            if (lines[i].StartsWith("Symbol:"))
+            //            {
+            //                lines[i] = $"Symbol: {symbol}";
+            //                stockUpdated = true;
+            //                break;
+            //            }
+            //        }
+            //        if (!stockUpdated)
+            //        {
+            //            lines.Insert(0, $"Symbol: {symbol}");
+            //        }
 
-                    label.Text = string.Join(", ", lines);
-                }
+            //        label.Text = string.Join(", ", lines);
+            //    }
 
-                // marketprice için: sembol deðiþince fiyatý güncelle
-                _ = UpdateMarketPriceAsync(); // marketprice için
+            //    // marketprice için: sembol deðiþince fiyatý güncelle
+            //    _ = UpdateMarketPriceAsync(); // marketprice için
 
-                // SECDEF: yeni sembolde secTypes'ý yükle
-                _ = LoadSecTypesForCurrentAsync();
-            }
+            //    // SECDEF: yeni sembolde secTypes'ý yükle
+            //    _ = LoadSecTypesForCurrentAsync();
+            //}
         }
         #endregion
 
@@ -693,26 +709,78 @@ namespace ArcTriggerUI.Dashboard
         #endregion
         #region Api Request || Api Ýstek 
 
-        private async void SymbolAPI(object sender, EventArgs e)
+
+        private async Task SymbolAPI(string value)
         {
-            List<string> symbolList = new List<string>();
- 
+            _symbolResults.Clear();
+            _allSymbolMatches.Clear();
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                SymbolSuggestions.IsVisible = false;
+                return;
+            }
+
             try
             {
-
-                var results = await _twsService.SearchSymbolsAsync("AAPL");
+                var results = await _twsService.SearchSymbolsAsync(value);
 
                 foreach (var r in results)
                 {
-                    symbolList.Add(r.Symbol+" "+r.Description);
+                    _symbolResults.Add(new SymbolDisplay
+                    {
+                        Display = r.Symbol + " " + r.Description
+                    });
+                    _allSymbolMatches.Add(r);
                 }
-                StockPicker.ItemsSource = symbolList;
+
+                // Listeyi göster / gizle
+                SymbolSuggestions.IsVisible = _symbolResults.Count > 0;
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Hata: " + ex.Message);
+                SymbolSuggestions.IsVisible = false;
             }
+        }
 
+        private List<string> _selectedDerivativeSecTypes = new();
+        private void SymbolSuggestions_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.CurrentSelection.FirstOrDefault() is SymbolDisplay selectedDisplay)
+            {
+                SymbolSearchEntry.Text = selectedDisplay.Display;
+                SymbolSuggestions.IsVisible = false;
+
+                // Seçilen Symbol'a ait ConId'yi al
+                var symbolText = selectedDisplay.Display.Split(' ')[0]; // "AA NYSE" -> "AA"
+
+                var match = _allSymbolMatches.FirstOrDefault(s => s.Symbol == symbolText);
+                if (match != null)
+                {
+                    // ConId üzerinden derivative sec type’larý al
+                    int conId = match.ConId;
+
+                    // Eðer ConId’ye göre TWS’den secType’larý alacak baþka bir API çaðrýsý varsa onu kullan
+                    // Örnek: GetOptionParamsAsync veya benzeri
+                    // _selectedDerivativeSecTypes = await _twsService.GetSecTypesByConIdAsync(conId);
+
+                    // Þu an elimizde SymbolMatch içindeki DerivativeSecTypes var
+                    _selectedDerivativeSecTypes = match.DerivativeSecTypes.ToList();
+
+                    // Picker’a ata
+                    SecTypePicker.ItemsSource = _selectedDerivativeSecTypes;
+                    if (_selectedDerivativeSecTypes.Count > 0)
+                        SecTypePicker.SelectedIndex = 0; // Ýlk öðeyi seçili yap
+                }
+                else
+                {
+                    _selectedDerivativeSecTypes.Clear();
+                    SecTypePicker.ItemsSource = null;
+                }
+
+                // Debug
+                Console.WriteLine($"ConId {match?.ConId}: " + string.Join(", ", _selectedDerivativeSecTypes));
+            }
         }
         private async void OnGetTickleClicked(object sender, EventArgs e)
         {
@@ -722,55 +790,55 @@ namespace ArcTriggerUI.Dashboard
 
         private async void OnGetStatusClicked(object sender, EventArgs e)
         {
-           
+
         }
 
         private async void OnPostSymbolClicked(object sender, EventArgs e)
         {
-         
+
         }
 
 
         private async void OnDeleteOrderClicked(object sender, EventArgs e)
         {
-           
+
         }
 
         private async void OnSecdefStrikeClicked(object sender, EventArgs e)
         {
-           
+
         }
 
         private async void OngGetSecdef(object sender, EventArgs e)
         {
-          
+
         }
 
         private async void OnGetInfoClicked(object sender, EventArgs e)
         {
-          
+
         }
 
 
         // Örnek buton click event
         private async void OnGetPortfolioClicked(object sender, EventArgs e)
         {
-           
+
         }
 
         private async void LoadOrders(object sender, EventArgs e)
         {
-           
+
         }
 
         private async void OnPostOrderClicked(object sender, EventArgs e)
         {
-           
+
         }
 
         private async void OnGetOrdersClicked(object sender, EventArgs e)
         {
-            
+
         }
 
         #endregion
@@ -846,7 +914,7 @@ namespace ArcTriggerUI.Dashboard
 
         private async void OnCreateOrdersClicked(object sender, EventArgs e)
         {
-           
+
 
         }
 
@@ -861,100 +929,38 @@ namespace ArcTriggerUI.Dashboard
         // XAML: TextChanged="OnSymbolSearchTextChanged"
         private async void OnSymbolSearchTextChanged(object sender, TextChangedEventArgs e)
         {
-            try
-            {
-                var query = e.NewTextValue?.Trim() ?? string.Empty;
-
-                // boþsa listeyi gizle
-                if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
-                {
-                    _symbolCts?.Cancel();
-                    _symbolResults.Clear();
-                    SymbolSuggestions.IsVisible = false;
-                    return;
-                }
-
-                // debounce + önceki isteði iptal
-                _symbolCts?.Cancel();
-                _symbolCts = new CancellationTokenSource();
-                var token = _symbolCts.Token;
-
-                // küçük bir gecikme (debounce)
-                await Task.Delay(250, token);
-
-                await FetchAndBindSymbolSuggestionsAsync(query, token);
-            }
-            catch (TaskCanceledException)
-            {
-                // yoksay
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("Symbol search error: " + ex.Message);
-                _symbolResults.Clear();
-                SymbolSuggestions.IsVisible = false;
-            }
+           
+                SymbolAPI(SymbolSearchEntry.Text);
+          
+           
         }
 
         // XAML: SelectionChanged="OnSymbolSuggestionSelected"
-        private void OnSymbolSuggestionSelected(object sender, SelectionChangedEventArgs e)
-        {
-            try
-            {
-                if (e.CurrentSelection?.FirstOrDefault() is SymbolSearchResponse sel)
-                {
-                    // Entry’ye seçilen sembolü yaz
-                    SymbolSearchEntry.Text = sel.symbol;
-
-                    // StockPicker’ý seçime göre güncelle
-                    StockPicker.Items.Clear();
-                    StockPicker.Items.Add(sel.symbol);
-                    StockPicker.SelectedIndex = 0;
-
-                    // conid’i doðrudan seçilen objeden al; yoksa sözlükten dene
-                    if (sel.conid.HasValue)
-                        _selectedConid = sel.conid.Value;
-                    else if (_symbolConidMap.TryGetValue(sel.symbol, out var cid))
-                        _selectedConid = cid;
-                    else
-                        _selectedConid = null;
-
-                    // öneri listesini gizle
-                    SymbolSuggestions.IsVisible = false;
-                    SymbolSuggestions.SelectedItem = null;
-
-                    // marketprice için: seçimden sonra fiyatý güncelle
-                    _ = UpdateMarketPriceAsync(); // marketprice için
-
-                    // SECDEF: yeni sembolde secTypes'ý yükle
-                    _ = LoadSecTypesForCurrentAsync();
-                }
-            }
-            catch { /* yoksay */ }
-        }
+       
+        
 
         // symbols text için: API’den öneri çekme + conid + companyHeader yakalama
         private async Task FetchAndBindSymbolSuggestionsAsync(string query, CancellationToken token)
         {
-         
+
         }
 
-        private async Task UpdateMarketPriceAsync() 
+        private async Task UpdateMarketPriceAsync()
         {
-         
 
-          
+
+
         }
 
         private async Task LoadSecTypesForCurrentAsync()
         {
-          
+
         }
 
-      
+
         private async void OnSecTypeChanged(object sender, EventArgs e)
         {
-           
+
         }
         private string PickBestExchange(List<string> exchanges)
         {
@@ -970,7 +976,7 @@ namespace ArcTriggerUI.Dashboard
         // XAML -> MonthsPicker.SelectedIndexChanged="OnMonthChanged"
         private async void OnMonthChanged(object sender, EventArgs e)
         {
-           
+
         }
         private void RebuildStrikesPicker()
         {
@@ -1007,7 +1013,7 @@ namespace ArcTriggerUI.Dashboard
         }
         private async Task LoadMaturityDateForSelectionAsync()
         {
-           
+
 
         }
 
