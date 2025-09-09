@@ -4,15 +4,16 @@ using ArcTriggerUI.Dtos;
 using ArcTriggerUI.Dtos.Orders;
 using ArcTriggerUI.Interfaces;
 using ArcTriggerUI.Services;
-using ArcTriggerV2.Core.Models;
-using ArcTriggerV2.Core.Services;
+using ArcTriggerUI.Tws.Models;
+using ArcTriggerUI.Tws.Services;
+using ArcTriggerUI.Tws.Utils;
 using Microsoft.Maui.ApplicationModel;         // MainThread
 using Microsoft.Maui.Controls;                 // MAUI Controls
 using Microsoft.Maui.Controls.Compatibility;
 using Microsoft.Maui.Storage;                  // Preferences
 using System;
-using System.Collections.Generic; // SECDEF: listeler için
-// symbols text için
+using System.Collections.Generic; // SECDEF: listeler iï¿½in
+// symbols text iï¿½in
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
@@ -30,7 +31,7 @@ namespace ArcTriggerUI.Dashboard
         double xOffset = 0;
         double yOffset = 0;
 
-        #region Section Config || Buton Bölümleri Ayarlarý
+        #region Section Config || Buton Bï¿½lï¿½mleri Ayarlarï¿½
         class SectionConfig
         {
             public string Id = "";
@@ -58,39 +59,39 @@ namespace ArcTriggerUI.Dashboard
         private string? _lastConId;
         private string _currentRight = "C"; // Call=C, Put=P
         private string _orderMode = "MKT"; // DEFAULT MKT
-        private StrikesResponses _lastStrikes; // month deðiþtiðinde gelen set'i tut
+        private StrikesResponses _lastStrikes; // month deï¿½iï¿½tiï¿½inde gelen set'i tut
 
-        // symbols text için: arama sonucu listesi ve debounce/iptal için CTS
+        // symbols text iï¿½in: arama sonucu listesi ve debounce/iptal iï¿½in CTS
 
         private CancellationTokenSource? _symbolCts;
 
-        // symbols text için: sembol -> conid eþlemesi ve seçilen conid
+        // symbols text iï¿½in: sembol -> conid eï¿½lemesi ve seï¿½ilen conid
         private readonly Dictionary<string, long> _symbolConidMap = new(StringComparer.OrdinalIgnoreCase);
         private long? _selectedConid = null;
 
-        // marketprice için: fiyat isteklerini yönetmek için CTS
-        private CancellationTokenSource? _priceCts; // marketprice için
+        // marketprice iï¿½in: fiyat isteklerini yï¿½netmek iï¿½in CTS
+        private CancellationTokenSource? _priceCts; // marketprice iï¿½in
 
-        // symbols text için: öneri öðesi (conid eklendi)
+        // symbols text iï¿½in: ï¿½neri ï¿½ï¿½esi (conid eklendi)
         public class SymbolSearchResponse
         {
             public string symbol { get; set; } = "";
             public string? name { get; set; }
             public long? conid { get; set; }      // << eklendi
-            public string? companyHeader { get; set; } // companyheader için
+            public string? companyHeader { get; set; } // companyheader iï¿½in
 
-            // companyheader için: companyHeader varsa önce onu göster, yoksa name, yoksa symbol
+            // companyheader iï¿½in: companyHeader varsa ï¿½nce onu gï¿½ster, yoksa name, yoksa symbol
             public string Display =>
-                !string.IsNullOrWhiteSpace(companyHeader) ? $"{symbol} — {companyHeader}" :
-                string.IsNullOrWhiteSpace(name) ? symbol : $"{symbol} — {name}";
+                !string.IsNullOrWhiteSpace(companyHeader) ? $"{symbol} ï¿½ {companyHeader}" :
+                string.IsNullOrWhiteSpace(name) ? symbol : $"{symbol} ï¿½ {name}";
         }
 
         // =========================
-        // SECDEF: akýþ için state
+        // SECDEF: akï¿½ï¿½ iï¿½in state
         // =========================
         private List<string> _secdefSecTypes = new();
         private List<string> _secdefMonths = new();
-        private List<string> _secdefExchanges = new(); // strikes çaðrýsýnda kullanacaðýz
+        private List<string> _secdefExchanges = new(); // strikes ï¿½aï¿½rï¿½sï¿½nda kullanacaï¿½ï¿½z
 
         // SECDEF: hafif DTO'lar
         private class ConidInfoResponse
@@ -138,13 +139,13 @@ namespace ArcTriggerUI.Dashboard
 
             SymbolSuggestions.ItemsSource = _symbolResults;
 
-            // Seçim yapýldýðýnda Entry'ye yaz
+            // Seï¿½im yapï¿½ldï¿½ï¿½ï¿½nda Entry'ye yaz
             SymbolSuggestions.SelectionChanged += (s, e) =>
             {
                 if (e.CurrentSelection.FirstOrDefault() is SymbolDisplay selected)
                 {
                     SymbolSearchEntry.Text = selected.Display;
-                    SymbolSuggestions.IsVisible = false; // seçim sonrasý listeyi kapat
+                    SymbolSuggestions.IsVisible = false; // seï¿½im sonrasï¿½ listeyi kapat
                 }
             };
             var panGesture = new PanGestureRecognizer();
@@ -152,7 +153,7 @@ namespace ArcTriggerUI.Dashboard
             {
                 if (e.StatusType == GestureStatus.Running)
                 {
-                    // ScrollView’u sürükleme
+                    // ScrollViewï¿½u sï¿½rï¿½kleme
                     Scrolls.ScrollToAsync(xOffset - e.TotalX, yOffset - e.TotalY, false);
                 }
                 else if (e.StatusType == GestureStatus.Completed)
@@ -165,7 +166,7 @@ namespace ArcTriggerUI.Dashboard
 
             ContentGrid.GestureRecognizers.Add(panGesture);
 
-            // >>> fiyatý periyodik çek
+            // >>> fiyatï¿½ periyodik ï¿½ek
             StartPriceAutoRefresh(TimeSpan.FromSeconds(3));
         }
 
@@ -196,7 +197,7 @@ namespace ArcTriggerUI.Dashboard
         private Task<string?> ActionSheetAsync(string title, string cancel, string? destruction, params string[] buttons)
             => HostPage?.DisplayActionSheet(title, cancel, destruction, buttons) ?? Task.FromResult<string?>(null);
 
-        #region Button Sections || Özelleþtirilebilir Buton Bölümleri
+        #region Button Sections || ï¿½zelleï¿½tirilebilir Buton Bï¿½lï¿½mleri
         void InitHotSections()
         {
             sections["pos"] = new SectionConfig
@@ -250,7 +251,7 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region Buton Event Handlers || Buton Olay Ýþleyicileri
+        #region Buton Event Handlers || Buton Olay ï¿½ï¿½leyicileri
         void OnHotPresetClicked(object sender, EventArgs e)
         {
             if (sender is not Button b || b.CommandParameter is not string id) return;
@@ -261,7 +262,7 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region HotAdd Event Handler || HotAdd Olay Ýþleyicisi
+        #region HotAdd Event Handler || HotAdd Olay ï¿½ï¿½leyicisi
         public async void OnHotAddClicked(object sender, EventArgs e)
         {
             if (sender is not Button b || b.CommandParameter is not string id) return;
@@ -295,7 +296,7 @@ namespace ArcTriggerUI.Dashboard
 
         #endregion
 
-        #region Buton Yardýmcý Metotlarý || Button Helper Methods
+        #region Buton Yardï¿½mcï¿½ Metotlarï¿½ || Button Helper Methods
         private string _selectedOrderType = "Call";   // Default
         private string _selectedOrderMode = "MKT";    // Default
 
@@ -306,14 +307,14 @@ namespace ArcTriggerUI.Dashboard
             var radio = sender as RadioButton;
             _selectedOrderType = radio?.Content?.ToString();
 
-            // right paramý (Call -> C, Put -> P)
+            // right paramï¿½ (Call -> C, Put -> P)
             _currentRight = string.Equals(_selectedOrderType, "Put", StringComparison.OrdinalIgnoreCase) ? "P" : "C";
             ClearMaturityUI();
 
-            // right deðiþtiðinde strike listesi de right’a göre yeniden kurulsun
+            // right deï¿½iï¿½tiï¿½inde strike listesi de rightï¿½a gï¿½re yeniden kurulsun
             if (_lastStrikes != null)
                 RebuildStrikesPicker();
-            // strike seçiliyse maturity’yi yeniden çek
+            // strike seï¿½iliyse maturityï¿½yi yeniden ï¿½ek
             if (StrikesPicker.SelectedIndex >= 0)
                 _ = LoadMaturityDateForSelectionAsync();
         }
@@ -354,7 +355,7 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region Buton Format Yardýmcý Metotlarý || Button Helper Methods
+        #region Buton Format Yardï¿½mcï¿½ Metotlarï¿½ || Button Helper Methods
         static string NormalizeForMode(string input, SectionMode mode)
         {
             var t = input?.Trim().ToUpperInvariant() ?? "";
@@ -392,7 +393,7 @@ namespace ArcTriggerUI.Dashboard
 
         #endregion
 
-        #region Buton Deðer Yardýmcý Metotlarý || Button Value Helper Methods
+        #region Buton Deï¿½er Yardï¿½mcï¿½ Metotlarï¿½ || Button Value Helper Methods
         static string DisplayForButton(string normalized, SectionMode mode)
         {
             return mode switch
@@ -406,7 +407,7 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region Buton Deðer Dönüþtürme Metodu || Button Value Conversion Method
+        #region Buton Deï¿½er Dï¿½nï¿½ï¿½tï¿½rme Metodu || Button Value Conversion Method
         static string ValueForEntry(string buttonText, SectionMode mode)
         {
             var s = (buttonText ?? "").Trim().ToUpperInvariant()
@@ -448,7 +449,7 @@ namespace ArcTriggerUI.Dashboard
         #endregion
 
 
-        #region Number Entry Text Changed || Sayý Giriþi Metin Deðiþikliði
+        #region Number Entry Text Changed || Sayï¿½ Giriï¿½i Metin Deï¿½iï¿½ikliï¿½i
 
         private void OnNumberEntryTextChanged(object sender, TextChangedEventArgs e)
         {
@@ -458,13 +459,13 @@ namespace ArcTriggerUI.Dashboard
             // Girilen karakteri kontrol et
             if (!int.TryParse(e.NewTextValue, out int value) || value < 1 || value > 9)
             {
-                // Geçersizse eski deðeri geri yükle
+                // Geï¿½ersizse eski deï¿½eri geri yï¿½kle
                 ((Entry)sender).Text = e.OldTextValue;
             }
         }
         #endregion
 
-        #region Seçili Sembol || Selected Symbol
+        #region Seï¿½ili Sembol || Selected Symbol
         private void OnSymbolChanged(object sender, EventArgs e)
         {
             //if (sender is Picker picker && picker.SelectedIndex != -1)
@@ -472,24 +473,24 @@ namespace ArcTriggerUI.Dashboard
             //    var symbol = picker.Items[picker.SelectedIndex];
             //    Console.WriteLine($"Selected symbol: {symbol}");
 
-            //    // symbols text için: seçilen sembolün conid’sini sözlükten set et
+            //    // symbols text iï¿½in: seï¿½ilen sembolï¿½n conidï¿½sini sï¿½zlï¿½kten set et
             //    if (_symbolConidMap.TryGetValue(symbol, out var cid))
             //    {
             //        _selectedConid = cid;
             //    }
             //    else
             //    {
-            //        _selectedConid = null; // << yoksa stale conid kalmasýn
+            //        _selectedConid = null; // << yoksa stale conid kalmasï¿½n
             //    }
 
-            //    // Window baþlýðýna yansýt
+            //    // Window baï¿½lï¿½ï¿½ï¿½na yansï¿½t
             //    if (this.Window != null)
             //        this.Window.Title = symbol;
 
-            //    // Picker Title'ýný güncelle
+            //    // Picker Title'ï¿½nï¿½ gï¿½ncelle
             //    picker.Title = symbol;
 
-            //    // DisplayLabel güncelle
+            //    // DisplayLabel gï¿½ncelle
             //    if (this.FindByName<Label>("DisplayLabel") is Label label)
             //    {
             //        var currentText = label.Text ?? "";
@@ -515,16 +516,16 @@ namespace ArcTriggerUI.Dashboard
             //        label.Text = string.Join(", ", lines);
             //    }
 
-            //    // marketprice için: sembol deðiþince fiyatý güncelle
-            //    _ = UpdateMarketPriceAsync(); // marketprice için
+            //    // marketprice iï¿½in: sembol deï¿½iï¿½ince fiyatï¿½ gï¿½ncelle
+            //    _ = UpdateMarketPriceAsync(); // marketprice iï¿½in
 
-            //    // SECDEF: yeni sembolde secTypes'ý yükle
+            //    // SECDEF: yeni sembolde secTypes'ï¿½ yï¿½kle
             //    _ = LoadSecTypesForCurrentAsync();
             //}
         }
         #endregion
 
-        #region Order Mode || Sipariþ Modu
+        #region Order Mode || Sipariï¿½ Modu
         private void OnCallOptionCheckedChanged(object sender, CheckedChangedEventArgs e)
         {
             if (e.Value) Console.WriteLine("Order type: Call");
@@ -536,7 +537,7 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region Order Price Mode || Sipariþ Fiyat Modu
+        #region Order Price Mode || Sipariï¿½ Fiyat Modu
         private void OnTriggerPriceTextChanged(object sender, TextChangedEventArgs e)
         {
             QuantityCalculated();
@@ -544,7 +545,7 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region Offset Text Changed || Offset Metin Deðiþikliði
+        #region Offset Text Changed || Offset Metin Deï¿½iï¿½ikliï¿½i
         private void OnIncreaseTriggerClicked(object sender, EventArgs e)
         {
             if (this.FindByName<Entry>("TriggerEntry") is Entry entry && decimal.TryParse(entry.Text, out decimal value))
@@ -554,7 +555,7 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region Decrease Trigger Clicked || Tetikleyici Azaltma Týklandý
+        #region Decrease Trigger Clicked || Tetikleyici Azaltma Tï¿½klandï¿½
         private void OnDecreaseTriggerClicked(object sender, EventArgs e)
         {
             if (this.FindByName<Entry>("TriggerEntry") is Entry entry && decimal.TryParse(entry.Text, out decimal value))
@@ -564,7 +565,7 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region Seçili Strike || Selected Strike
+        #region Seï¿½ili Strike || Selected Strike
         private void OnStrikeChanged(object sender, EventArgs e)
         {
             if (sender is Picker picker && picker.SelectedIndex != -1)
@@ -575,12 +576,12 @@ namespace ArcTriggerUI.Dashboard
                 if (this.Window != null)
                     this.Window.Title = strike;
 
-                picker.Title = strike; // Picker Title güncelle
+                picker.Title = strike; // Picker Title gï¿½ncelle
             }
         }
         #endregion
 
-        #region Expiry Picker Changed || Vade Seçici Deðiþti
+        #region Expiry Picker Changed || Vade Seï¿½ici Deï¿½iï¿½ti
         private void OnExpirationChanged(object sender, EventArgs e)
         {
             if (sender is Picker picker && picker.SelectedIndex != -1)
@@ -591,12 +592,12 @@ namespace ArcTriggerUI.Dashboard
                 if (this.Window != null)
                     this.Window.Title = expiry;
 
-                picker.Title = expiry; // Picker Title güncelle
+                picker.Title = expiry; // Picker Title gï¿½ncelle
             }
         }
         #endregion
 
-        #region Position Size Text Changed || Pozisyon Boyutu Metin Deðiþikliði
+        #region Position Size Text Changed || Pozisyon Boyutu Metin Deï¿½iï¿½ikliï¿½i
 
         private void OnPositionTextChanged(object sender, TextChangedEventArgs e)
         {
@@ -629,14 +630,14 @@ namespace ArcTriggerUI.Dashboard
         #endregion
 
 
-        #region Stop Loss Text Changed || Stop Loss Metin Deðiþikliði
+        #region Stop Loss Text Changed || Stop Loss Metin Deï¿½iï¿½ikliï¿½i
         private void OnStopLossTextChanged(object sender, TextChangedEventArgs e)
         {
             Console.WriteLine($"Stop loss: {e.NewTextValue}");
         }
         #endregion
 
-        #region Stop Loss Preset Clicked || Stop Loss Ön Ayarý Týklandý
+        #region Stop Loss Preset Clicked || Stop Loss ï¿½n Ayarï¿½ Tï¿½klandï¿½
         private void OnStopLossPreset(object sender, EventArgs e)
         {
             if (sender is Button btn && this.FindByName<Entry>("StopLossEntry") is Entry entry)
@@ -648,7 +649,7 @@ namespace ArcTriggerUI.Dashboard
 
 
 
-        #region Profit Text Changed || Kar Metin Deðiþikliði
+        #region Profit Text Changed || Kar Metin Deï¿½iï¿½ikliï¿½i
         private void OnProfitPresetClicked(object sender, EventArgs e)
         {
             if (sender is Button btn && this.FindByName<Entry>("ProfitEntry") is Entry entry)
@@ -659,21 +660,21 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region Trail Text Changed || Trail Metin Deðiþikliði
+        #region Trail Text Changed || Trail Metin Deï¿½iï¿½ikliï¿½i
         private void OnTrailClicked(object sender, EventArgs e)
         {
             Console.WriteLine("Invalidate action triggered");
         }
         #endregion
 
-        #region Breakeven Clicked || Breakeven Týklandý
+        #region Breakeven Clicked || Breakeven Tï¿½klandï¿½
         private void OnBreakevenClicked(object sender, EventArgs e)
         {
 
         }
         #endregion
 
-        #region Offset Preset Clicked || Offset Ön Ayarý Týklandý
+        #region Offset Preset Clicked || Offset ï¿½n Ayarï¿½ Tï¿½klandï¿½
         private void OnOffsetPresetClicked(object sender, EventArgs e)
         {
             if (sender is Button btn && this.FindByName<Entry>("OffsetEntry") is Entry entry)
@@ -684,7 +685,7 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-        #region Cancel Clicked || Ýptal Týklandý
+        #region Cancel Clicked || ï¿½ptal Tï¿½klandï¿½
         private void OnCancelClicked(object sender, EventArgs e)
         {
             Element cursor = this;
@@ -707,7 +708,7 @@ namespace ArcTriggerUI.Dashboard
         }
 
         #endregion
-        #region Api Request || Api Ýstek 
+        #region Api Request || Api ï¿½stek 
 
 
         private async Task SymbolAPI(string value)
@@ -733,7 +734,7 @@ namespace ArcTriggerUI.Dashboard
                     _allSymbolMatches.Add(r);
                 }
 
-                // Listeyi göster / gizle
+                // Listeyi gï¿½ster / gizle
                 SymbolSuggestions.IsVisible = _symbolResults.Count > 0;
             }
             catch (Exception ex)
@@ -751,26 +752,26 @@ namespace ArcTriggerUI.Dashboard
                 SymbolSearchEntry.Text = selectedDisplay.Display;
                 SymbolSuggestions.IsVisible = false;
 
-                // Seçilen Symbol'a ait ConId'yi al
+                // Seï¿½ilen Symbol'a ait ConId'yi al
                 var symbolText = selectedDisplay.Display.Split(' ')[0]; // "AA NYSE" -> "AA"
 
                 var match = _allSymbolMatches.FirstOrDefault(s => s.Symbol == symbolText);
                 if (match != null)
                 {
-                    // ConId üzerinden derivative sec type’larý al
+                    // ConId ï¿½zerinden derivative sec typeï¿½larï¿½ al
                     int conId = match.ConId;
 
-                    // Eðer ConId’ye göre TWS’den secType’larý alacak baþka bir API çaðrýsý varsa onu kullan
-                    // Örnek: GetOptionParamsAsync veya benzeri
+                    // Eï¿½er ConIdï¿½ye gï¿½re TWSï¿½den secTypeï¿½larï¿½ alacak baï¿½ka bir API ï¿½aï¿½rï¿½sï¿½ varsa onu kullan
+                    // ï¿½rnek: GetOptionParamsAsync veya benzeri
                     // _selectedDerivativeSecTypes = await _twsService.GetSecTypesByConIdAsync(conId);
 
-                    // Þu an elimizde SymbolMatch içindeki DerivativeSecTypes var
+                    // ï¿½u an elimizde SymbolMatch iï¿½indeki DerivativeSecTypes var
                     _selectedDerivativeSecTypes = match.DerivativeSecTypes.ToList();
 
-                    // Picker’a ata
+                    // Pickerï¿½a ata
                     SecTypePicker.ItemsSource = _selectedDerivativeSecTypes;
                     if (_selectedDerivativeSecTypes.Count > 0)
-                        SecTypePicker.SelectedIndex = 0; // Ýlk öðeyi seçili yap
+                        SecTypePicker.SelectedIndex = 0; // ï¿½lk ï¿½ï¿½eyi seï¿½ili yap
                 }
                 else
                 {
@@ -820,7 +821,7 @@ namespace ArcTriggerUI.Dashboard
         }
 
 
-        // Örnek buton click event
+        // ï¿½rnek buton click event
         private async void OnGetPortfolioClicked(object sender, EventArgs e)
         {
 
@@ -843,13 +844,13 @@ namespace ArcTriggerUI.Dashboard
 
         #endregion
 
-        #region Sað Týk Düzenleme || Right Click Edit
+        #region Saï¿½ Tï¿½k Dï¿½zenleme || Right Click Edit
         private async void OnPresetRightClick(object sender, TappedEventArgs e)
         {
             if (sender is not Button btn) return;
-            if (!TryFindSectionAndIndex(btn, out var s, out var slotIndex)) return; // aþaðýdaki helper
+            if (!TryFindSectionAndIndex(btn, out var s, out var slotIndex)) return; // aï¿½aï¿½ï¿½daki helper
 
-            // mevcut deðeri parse et (virgül/nokta toleranslý)
+            // mevcut deï¿½eri parse et (virgï¿½l/nokta toleranslï¿½)
             string old = btn.Text?.Trim() ?? "";
             old = old.Replace("$", "").Replace("%", "").Trim().Replace(',', '.');
 
@@ -871,19 +872,19 @@ namespace ArcTriggerUI.Dashboard
             // 1) Normalizasyon (K, %, $ vb.)
             var normalized = NormalizeForMode(input!, s.Mode);
 
-            // 2) Seçili slotu güncelle + kaydet + butonlarý yenile
+            // 2) Seï¿½ili slotu gï¿½ncelle + kaydet + butonlarï¿½ yenile
             s.Selected[slotIndex] = normalized;
             SaveSection(s);
-            ApplySectionButtons(s); // -> "$7.5K" gibi doðru metni basar
+            ApplySectionButtons(s); // -> "$7.5K" gibi doï¿½ru metni basar
 
-            // 3) Ýlgili Entry'ye ham deðeri yaz (7500 gibi)
+            // 3) ï¿½lgili Entry'ye ham deï¿½eri yaz (7500 gibi)
             var displayText = DisplayForButton(normalized, s.Mode);
             s.TargetEntry.Text = ValueForEntry(displayText, s.Mode);
         }
 
         #endregion
 
-        #region Parse & Format Helpers || Ayrýþtýrma ve Biçimlendirme Yardýmcýlarý
+        #region Parse & Format Helpers || Ayrï¿½ï¿½tï¿½rma ve Biï¿½imlendirme Yardï¿½mcï¿½larï¿½
         static bool TryParseFlexible(string text, out decimal value)
         {
             value = 0m;
@@ -923,7 +924,7 @@ namespace ArcTriggerUI.Dashboard
 
 
         // =======================
-        // symbols text için: Arama Entry’si & Öneri CollectionView handler’larý
+        // symbols text iï¿½in: Arama Entryï¿½si & ï¿½neri CollectionView handlerï¿½larï¿½
         // =======================
 
         // XAML: TextChanged="OnSymbolSearchTextChanged"
@@ -939,7 +940,7 @@ namespace ArcTriggerUI.Dashboard
        
         
 
-        // symbols text için: API’den öneri çekme + conid + companyHeader yakalama
+        // symbols text iï¿½in: APIï¿½den ï¿½neri ï¿½ekme + conid + companyHeader yakalama
         private async Task FetchAndBindSymbolSuggestionsAsync(string query, CancellationToken token)
         {
 
@@ -997,7 +998,7 @@ namespace ArcTriggerUI.Dashboard
                         StrikesPicker.Items.Add(s.ToString(CultureInfo.InvariantCulture));
                 }
 
-                // varsa ilkini seç ve maturity çek
+                // varsa ilkini seï¿½ ve maturity ï¿½ek
                 if (StrikesPicker.Items.Count > 0)
                 {
                     StrikesPicker.SelectedIndex = 0;
@@ -1005,8 +1006,8 @@ namespace ArcTriggerUI.Dashboard
                 }
                 else
                 {
-                    // hiç yoksa picker’ý temizle
-                    StrikesPicker.Title = "—";
+                    // hiï¿½ yoksa pickerï¿½ï¿½ temizle
+                    StrikesPicker.Title = "ï¿½";
                     ClearMaturityUI();
                 }
             });
@@ -1033,7 +1034,7 @@ namespace ArcTriggerUI.Dashboard
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 MaturityDateLabel.Items.Clear();
-                MaturityDateLabel.Title = "—";
+                MaturityDateLabel.Title = "ï¿½";
                 MaturityDateLabel.SelectedIndex = -1;
             });
         }
@@ -1048,12 +1049,12 @@ namespace ArcTriggerUI.Dashboard
 
         public void StartPriceAutoRefresh(TimeSpan? interval = null)
         {
-            // tekrar baþlatýlýrsa önce eskisini durdur
+            // tekrar baï¿½latï¿½lï¿½rsa ï¿½nce eskisini durdur
             StopPriceAutoRefresh();
 
             _autoPriceCts = new CancellationTokenSource();
             var token = _autoPriceCts.Token;
-            var delay = interval ?? TimeSpan.FromSeconds(2); // her 3 sn’de bir
+            var delay = interval ?? TimeSpan.FromSeconds(2); // her 3 snï¿½de bir
 
             _ = Task.Run(async () =>
             {
@@ -1061,7 +1062,7 @@ namespace ArcTriggerUI.Dashboard
                 {
                     try
                     {
-                        // UpdateMarketPriceAsync UI’yý güncelliyor, ana threade geçelim
+                        // UpdateMarketPriceAsync UIï¿½yï¿½ gï¿½ncelliyor, ana threade geï¿½elim
                         await MainThread.InvokeOnMainThreadAsync(async () =>
                         {
                             await UpdateMarketPriceAsync();
@@ -1099,7 +1100,7 @@ namespace ArcTriggerUI.Dashboard
             base.OnParentSet();
             if (Parent == null)
             {
-                // görünüm kaldýrýldý
+                // gï¿½rï¿½nï¿½m kaldï¿½rï¿½ldï¿½
                 StopPriceAutoRefresh();
             }
         }
@@ -1111,8 +1112,8 @@ namespace ArcTriggerUI.Dashboard
         // Price paint state
         private decimal? _prevPrice;
         private bool? _prevMarketClosed;
-        // fiyat + market status durumuna göre UI renkleri uygula
-        // fiyat + market status durumuna göre UI renkleri uygula (null-safe)
+        // fiyat + market status durumuna gï¿½re UI renkleri uygula
+        // fiyat + market status durumuna gï¿½re UI renkleri uygula (null-safe)
         private void ApplyPriceUI(decimal? price, bool? marketClosed)
         {
             MainThread.BeginInvokeOnMainThread(() =>
@@ -1122,9 +1123,9 @@ namespace ArcTriggerUI.Dashboard
                 if (MarketPriceLabel != null)
                     MarketPriceLabel.Text = price.HasValue
                         ? MarketPriceLabel.Text = price.Value.ToString(CultureInfo.InvariantCulture) + suffix
-                        : "—" + suffix;
+                        : "ï¿½" + suffix;
 
-                // Eðer XAML'de rozet (Frame) yoksa sadece yazý rengini ayarla ve çýk
+                // Eï¿½er XAML'de rozet (Frame) yoksa sadece yazï¿½ rengini ayarla ve ï¿½ï¿½k
                 var hasBadge = this.FindByName<Frame>("MarketPriceBadge") != null;
                 if (!hasBadge)
                 {
@@ -1132,12 +1133,12 @@ namespace ArcTriggerUI.Dashboard
                     {
                         if (marketClosed == true)
                         {
-                            // kapalýyken gri ton (arka plan yoksa text'i soluk yapalým)
+                            // kapalï¿½yken gri ton (arka plan yoksa text'i soluk yapalï¿½m)
                             MarketPriceLabel.TextColor = Colors.Gray;
                         }
                         else
                         {
-                            // açýkken: yükseliþ/düþüþe göre text rengi
+                            // aï¿½ï¿½kken: yï¿½kseliï¿½/dï¿½ï¿½ï¿½ï¿½e gï¿½re text rengi
                             if (_prevPrice.HasValue && price.HasValue)
                             {
                                 if (price.Value > _prevPrice.Value) MarketPriceLabel.TextColor = Colors.Green;
@@ -1156,43 +1157,43 @@ namespace ArcTriggerUI.Dashboard
                     return;
                 }
 
-                // Rozet var ise hem arka planý hem text rengini ayarla
+                // Rozet var ise hem arka planï¿½ hem text rengini ayarla
                 var badge = this.FindByName<Frame>("MarketPriceBadge");
                 if (badge != null)
                 {
                     if (marketClosed == true)
                     {
-                        // piyasa kapalý ? gri
+                        // piyasa kapalï¿½ ? gri
                         badge.BackgroundColor = Colors.LightGray;
                         if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.Black;
                     }
                     else
                     {
-                        // önceki fiyatla karþýlaþtýr
+                        // ï¿½nceki fiyatla karï¿½ï¿½laï¿½tï¿½r
                         if (_prevPrice.HasValue && price.HasValue)
                         {
                             if (price.Value > _prevPrice.Value)
                             {
-                                // yükseldi ? yeþil
+                                // yï¿½kseldi ? yeï¿½il
                                 badge.BackgroundColor = Colors.Green;
                                 if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.White;
                             }
                             else if (price.Value < _prevPrice.Value)
                             {
-                                // düþtü ? kýrmýzý
+                                // dï¿½ï¿½tï¿½ ? kï¿½rmï¿½zï¿½
                                 badge.BackgroundColor = Colors.Red;
                                 if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.White;
                             }
                             else
                             {
-                                // deðiþmedi ? nötr
+                                // deï¿½iï¿½medi ? nï¿½tr
                                 badge.BackgroundColor = Colors.Transparent;
                                 if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.DarkGray;
                             }
                         }
                         else
                         {
-                            // ilk fiyat ? nötr
+                            // ilk fiyat ? nï¿½tr
                             badge.BackgroundColor = Colors.Transparent;
                             if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.DarkGray;
                         }
