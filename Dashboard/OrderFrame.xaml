@@ -40,6 +40,7 @@
             <Setter Property="PlaceholderColor"
             Value="{AppThemeBinding Light=#9CA3AF, Dark=#6B7280}" />
             <Setter Property="Margin" Value="0" />
+            
         </Style>
 
         <!-- Base button -->
@@ -271,14 +272,17 @@
                                 <!-- SECDEF: SecType -->
                                 <VerticalStackLayout Spacing="2" WidthRequest="100">
                                     <Label Text="SecType" Style="{StaticResource HeaderLabel}" />
+
                                     <Picker x:Name="SecTypePicker"
                                         Title=""
                                         WidthRequest="100"
                                         SelectedIndexChanged="OnSecTypeChanged" />
+                                 
                                 </VerticalStackLayout>
 
                                 <!-- SECDEF: Months -->
                                 <VerticalStackLayout Spacing="2" WidthRequest="120">
+                                    
                                     <Label Text="Months" Style="{StaticResource HeaderLabel}" />
                                     <Picker x:Name="MonthsPicker"
                                         Title=""
@@ -551,7 +555,7 @@
                                             <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
                                             <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnBreakevenClicked"/>
                                             <Button Text="Cancel"
-                Style="{StaticResource ActionNeutral}"
+                BackgroundColor="IndianRed"
                 Clicked="OnCancelClicked"/>
                                             
 
