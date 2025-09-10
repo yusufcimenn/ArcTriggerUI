@@ -32,7 +32,7 @@ namespace ArcTriggerUI.Tws.Services
         
         public async Task ConnectAsync(string host, int port, int clientId, CancellationToken ct = default)
         {
-            if (isConnected==false)
+            if (isConnected == false)
             {
                 _nextOrderIdTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 Connect(host, port, clientId);
@@ -147,7 +147,10 @@ namespace ArcTriggerUI.Tws.Services
         public Task<int> PlaceBreakevenAsync(
             Contract contract, int qty,
             string tif = "DAY", string? account = null, bool close = true, CancellationToken ct = default)
-        {
+        {   
+            if (qty <= 0)
+                throw new ArgumentOutOfRangeException(nameof(qty), "Quantity must be positive.");
+
             var ob = new OrderBuilder()
                 .WithAction("SELL")
                 .WithOrderType("MKT")
@@ -158,6 +161,33 @@ namespace ArcTriggerUI.Tws.Services
 
             return PlaceOrderAsync(contract, ob.Build(), ct);
         }
+
+        public Task<int> PlaceProfitAsync(
+            Contract contract, double percent, int totalQty, string tif = "DAY", string? account = null, bool close = true, CancellationToken ct = default)
+        {
+            if (percent <= 0 || percent > 1)
+                throw new ArgumentOutOfRangeException(nameof(percent), "Percent must be between 0 and 1.");
+
+            if (totalQty <= 0)
+                throw new ArgumentOutOfRangeException(nameof(totalQty), "Quantity must be positive.");
+
+            var qty = (int)Math.Round(totalQty * percent, MidpointRounding.AwayFromZero);
+            if (qty == 0)
+                throw new InvalidOperationException("Calculated quantity is zero. Adjust percent or totalQty.");
+
+            var order = new OrderBuilder()
+                .WithAction("SELL")
+                .WithOrderType("MKT")
+                .WithQuantity(qty)
+                .WithTif(tif)
+                .WithOpenClose(close ? "C" : "O");
+
+            if (!string.IsNullOrWhiteSpace(account))
+                order.WithAccount(account);
+
+            return PlaceOrderAsync(contract, order.Build(), ct);
+        }
+
 
         public Task<int> PlaceStopMarketAsync(
             Contract contract, int qty, double stopTrigger,
@@ -347,12 +377,18 @@ namespace ArcTriggerUI.Tws.Services
                 case 14: d.Open = price; break;
             }
 
+            d.Price = price;
+            d.Field = field;
+
             d.Timestamp = DateTime.UtcNow;
 
+            // Debug
             Console.WriteLine(
                 $"[{d.Timestamp:HH:mm:ss}] Tick {field} Price={price} " +
                 $"ConId={d.ConId} Last={d.Last} Bid={d.Bid} Ask={d.Ask} O={d.Open} H={d.High} L={d.Low} C={d.Close}"
             );
+
+            OnMarketData?.Invoke(d);
         }
 
         public override void tickSize(int tickerId, int field, int size)
@@ -368,6 +404,7 @@ namespace ArcTriggerUI.Tws.Services
 
             d.Timestamp = DateTime.UtcNow;
 
+            //Debug
             Console.WriteLine($"[{d.Timestamp:HH:mm:ss}] TickSize {field} Size={size}");
         }
 
