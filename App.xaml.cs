@@ -1,4 +1,4 @@
-﻿using ArcTriggerUI.Pages;
+﻿using ArcTriggerUI;
 
 namespace ArcTriggerUI
 {

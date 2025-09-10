@@ -4,15 +4,9 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:ArcTriggerUI"
-    xmlns:pages="clr-namespace:ArcTriggerUI.Pages"
     Title="ArcTriggerUI">
 
     <!-- Giriş -->
-    <FlyoutItem Title="Login Page" Route="MyNewPage">
-        <ShellContent
-            Title="Login Page"
-            ContentTemplate="{DataTemplate pages:LoginPageWV}" />
-    </FlyoutItem>
 
     <!-- Ana ekran -->
     <FlyoutItem Title="ARC TRIGGER" Route="MainPage">
@@ -21,11 +15,5 @@
             ContentTemplate="{DataTemplate local:MainPage}" />
     </FlyoutItem>
 
-    <!-- Geçmiş -->
-    <FlyoutItem Title="History" Route="history">
-        <ShellContent
-            Title="History"
-            ContentTemplate="{DataTemplate pages:HistoryPage}" />
-    </FlyoutItem>
 
 </Shell>

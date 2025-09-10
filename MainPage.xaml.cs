@@ -8,14 +8,14 @@ namespace ArcTriggerUI
 {
     public partial class MainPage : ContentPage
     {
-        private readonly IApiService _apiService;
+       
         private readonly TwsService _twsService;
         private bool _isDark = false; // dark/light toggle state
 
-        public MainPage(IApiService apiService,TwsService twsService)
+        public MainPage(TwsService twsService)
         {
             InitializeComponent();
-            _apiService = apiService;
+            
             _twsService = twsService;
             // Başlangıçta temaya göre toolbar ayarla
             var app = Application.Current;
