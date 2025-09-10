@@ -170,7 +170,7 @@ namespace ArcTriggerUI.Dashboard
             ContentGrid.GestureRecognizers.Add(panGesture);
 
             // >>> fiyat� periyodik �ek
-            StartPriceAutoRefresh(TimeSpan.FromSeconds(3));
+          
         }
 
 
@@ -304,23 +304,7 @@ namespace ArcTriggerUI.Dashboard
         private string _selectedOrderMode = "MKT";    // Default
 
         // OrderType (Call/Put)
-        private void OnOrderTypeCheckedChanged(object sender, CheckedChangedEventArgs e)
-        {
-            if (!e.Value) return;
-            var radio = sender as RadioButton;
-            _selectedOrderType = radio?.Content?.ToString();
-
-            // right param� (Call -> C, Put -> P)
-            _currentRight = string.Equals(_selectedOrderType, "Put", StringComparison.OrdinalIgnoreCase) ? "P" : "C";
-            ClearMaturityUI();
-
-            // right de�i�ti�inde strike listesi de right�a g�re yeniden kurulsun
-            if (_lastStrikes != null)
-                RebuildStrikesPicker();
-            // strike se�iliyse maturity�yi yeniden �ek
-            if (StrikesPicker.SelectedIndex >= 0)
-                _ = LoadMaturityDateForSelectionAsync();
-        }
+      
 
         // OrderMode (MKT/LMT)
         private void OnOrderModeCheckedChanged(object sender, CheckedChangedEventArgs e)
@@ -632,7 +616,6 @@ namespace ArcTriggerUI.Dashboard
         }
         #endregion
 
-
         #region Stop Loss Text Changed || Stop Loss Metin De�i�ikli�i
         private void OnStopLossTextChanged(object sender, TextChangedEventArgs e)
         {
@@ -649,8 +632,6 @@ namespace ArcTriggerUI.Dashboard
             }
         }
         #endregion
-
-
 
         #region Profit Text Changed || Kar Metin De�i�ikli�i
         private void OnProfitPresetClicked(object sender, EventArgs e)
@@ -711,6 +692,7 @@ namespace ArcTriggerUI.Dashboard
         }
 
         #endregion
+
         #region Api Request || Api �stek 
 
         
@@ -781,20 +763,16 @@ namespace ArcTriggerUI.Dashboard
                     }
 
                     // Default değer (örnek: "STK") en başa ekle
-                    const string defaultSecType = "STK";
-                    if (!_selectedDerivativeSecTypes.Contains(defaultSecType))
-                    {
-                        _selectedDerivativeSecTypes.Insert(0, defaultSecType);
-                    }
+                
                     // Picker�a ata
-                    SecTypePicker.ItemsSource = _selectedDerivativeSecTypes;
+                    MonthsPicker.ItemsSource = _selectedDerivativeSecTypes;
                     //if (_selectedDerivativeSecTypes.Count > 0)
                     //    SecTypePicker.SelectedIndex = 0; // İlk öğeyi seçili yap
                 }
                 else
                 {
                     _selectedDerivativeSecTypes.Clear();
-                    SecTypePicker.ItemsSource = null;
+                    MonthsPicker.ItemsSource = null;
                 }
 
                 // Debug
@@ -806,42 +784,72 @@ namespace ArcTriggerUI.Dashboard
         {
             if (_selectedConId == null || string.IsNullOrEmpty(_selectedSymbol))
             {
-                Console.WriteLine("Hata", "Lütfen önce bir symbol seçin.", "OK");
+                await ShowErrorAsync("Hata", "Lütfen önce bir symbol seçin.");
                 return;
             }
 
             if (SecTypePicker.SelectedItem == null)
                 return;
 
+            // Kullanıcının seçtiği secType’ı al
+            _selectedSectype = SecTypePicker.SelectedItem.ToString();
+
             try
             {
-                // Kullanıcının seçtiği secType’ı güncelle
-                _selectedSectype = SecTypePicker.SelectedItem.ToString();
+                // Dayanak tipler için expiration ve strike al
+                if (_selectedSectype == "STK" || _selectedSectype == "FUT" || _selectedSectype == "IND")
+                {
+                    var optionParams = await _twsService.GetOptionParamsAsync(
+                        _selectedConId.Value,
+                        _selectedSymbol,
+                        _selectedSectype
+                    );
 
-                var optionParams = await _twsService.GetOptionParamsAsync(
-                    _selectedConId.Value,
-                    _selectedSymbol,
-                    _selectedSectype,
-                    "SMART"
-                );
+                    // Expiration listesi
+                    var expirations = optionParams
+                        .SelectMany(p => p.Expirations)
+                        .Distinct()
+                        .OrderBy(d => d)
+                        .ToList();
 
-                // Expiration listelerini topla
-                var expirations = optionParams
-                    .SelectMany(p => p.Expirations)
-                    .Distinct()
-                    .OrderBy(d => d)
-                    .ToList();
+                    MaturityDateLabel.ItemsSource = expirations;
+                    if (expirations.Count > 0)
+                        MaturityDateLabel.SelectedIndex = 0;
 
-                MaturityDateLabel.ItemsSource = expirations;
+                    // Strike listesi
+                    var strikes = optionParams
+                        .SelectMany(p => p.Strikes)
+                        .Distinct()
+                        .OrderBy(s => s)
+                        .ToList();
 
-                if (expirations.Count > 0)
-                    MaturityDateLabel.SelectedIndex = 0; // ilk expiration seçili gelsin
+                    StrikesPicker.ItemsSource = strikes;
+                    if (strikes.Count > 0)
+                        StrikesPicker.SelectedIndex = 0;
+                }
+                else
+                {
+                    // OPT/WAR/IOPT gibi derivative tipler için expiration/strike yok
+                    MaturityDateLabel.ItemsSource = null;
+                    StrikesPicker.ItemsSource = null;
+                }
             }
             catch (Exception ex)
             {
-                 Console.WriteLine("Hata", ex.Message, "OK");
+                await ShowErrorAsync("Hata", ex.Message);
             }
         }
+
+        // ContentView içinde yardımcı metod
+        private async Task ShowErrorAsync(string title, string message)
+        {
+            if (this.Parent is Page parentPage)
+            {
+                await parentPage.DisplayAlert(title, message, "OK");
+            }
+        }
+
+
 
 
 
@@ -916,56 +924,18 @@ namespace ArcTriggerUI.Dashboard
 
 
 
-        private async void OnCreateOrdersClicked(object sender, EventArgs e)
-        {
-
-
-        }
-
 
         #endregion
 
 
-        // =======================
-        // symbols text i�in: Arama Entry�si & �neri CollectionView handler�lar�
-        // =======================
 
         // XAML: TextChanged="OnSymbolSearchTextChanged"
         private async void OnSymbolSearchTextChanged(object sender, TextChangedEventArgs e)
         {
-           
                 SymbolAPI(SymbolSearchEntry.Text);
           
-           
         }
 
-        // XAML: SelectionChanged="OnSymbolSuggestionSelected"
-       
-        
-
-        // symbols text i�in: API�den �neri �ekme + conid + companyHeader yakalama
-        private async Task FetchAndBindSymbolSuggestionsAsync(string query, CancellationToken token)
-        {
-
-        }
-
-        private async Task UpdateMarketPriceAsync()
-        {
-
-
-
-        }
-
-        private async Task LoadSecTypesForCurrentAsync()
-        {
-
-        }
-
-
-        private async void OnSecTypeChanged(object sender, EventArgs e)
-        {
-
-        }
         private string PickBestExchange(List<string> exchanges)
         {
             if (exchanges == null || exchanges.Count == 0) return string.Empty;
@@ -974,239 +944,19 @@ namespace ArcTriggerUI.Dashboard
             return string.IsNullOrWhiteSpace(best) ? (exchanges.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty) : best;
         }
 
-        // ==========================
-        // SECDEF: month -> strikes
-        // ==========================
-        // XAML -> MonthsPicker.SelectedIndexChanged="OnMonthChanged"
-        private async void OnMonthChanged(object sender, EventArgs e)
-        {
-            
-        }
-        private void RebuildStrikesPicker()
-        {
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                StrikesPicker.Items.Clear();
-                if (_lastStrikes == null)
-                {
-                    ClearMaturityUI();
-                    return;
-                }
 
-                IEnumerable<decimal> list = _currentRight == "P" ? _lastStrikes.Put : _lastStrikes.Call;
-
-                if (list != null)
-                {
-                    foreach (var s in list)
-                        StrikesPicker.Items.Add(s.ToString(CultureInfo.InvariantCulture));
-                }
-
-                // varsa ilkini se� ve maturity �ek
-                if (StrikesPicker.Items.Count > 0)
-                {
-                    StrikesPicker.SelectedIndex = 0;
-                    _ = LoadMaturityDateForSelectionAsync();
-                }
-                else
-                {
-                    // hi� yoksa picker�� temizle
-                    StrikesPicker.Title = "�";
-                    ClearMaturityUI();
-                }
-            });
-        }
-        private async Task LoadMaturityDateForSelectionAsync()
-        {
-
-
-        }
-
-        private async void StrikesPicker_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (StrikesPicker.SelectedIndex >= 0)
-                StrikesPicker.Title = StrikesPicker.SelectedItem.ToString();
-            await LoadMaturityDateForSelectionAsync();
-        }
         private void MaturityDateLabel_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (MaturityDateLabel.SelectedIndex >= 0)
                 MaturityDateLabel.Title = MaturityDateLabel.Items[MaturityDateLabel.SelectedIndex];
         }
-        private void ClearMaturityUI()
-        {
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                MaturityDateLabel.Items.Clear();
-                MaturityDateLabel.Title = "�";
-                MaturityDateLabel.SelectedIndex = -1;
-            });
-        }
+
 
         public class StrikesResponses
         {
             public List<decimal> Call { get; set; } = new();
             public List<decimal> Put { get; set; } = new();
         }
-
-        private CancellationTokenSource? _autoPriceCts;
-
-        public void StartPriceAutoRefresh(TimeSpan? interval = null)
-        {
-            // tekrar ba�lat�l�rsa �nce eskisini durdur
-            StopPriceAutoRefresh();
-
-            _autoPriceCts = new CancellationTokenSource();
-            var token = _autoPriceCts.Token;
-            var delay = interval ?? TimeSpan.FromSeconds(2); // her 3 sn�de bir
-
-            _ = Task.Run(async () =>
-            {
-                while (!token.IsCancellationRequested)
-                {
-                    try
-                    {
-                        // UpdateMarketPriceAsync UI�y� g�ncelliyor, ana threade ge�elim
-                        await MainThread.InvokeOnMainThreadAsync(async () =>
-                        {
-                            await UpdateMarketPriceAsync();
-                        });
-                    }
-                    catch { /* yut gitsin */ }
-
-                    try
-                    {
-                        await Task.Delay(delay, token);
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        break;
-                    }
-                }
-            }, token);
-        }
-
-        public void StopPriceAutoRefresh()
-        {
-            try
-            {
-                _autoPriceCts?.Cancel();
-                _autoPriceCts?.Dispose();
-            }
-            catch { /* yut gitsin */ }
-            finally
-            {
-                _autoPriceCts = null;
-            }
-        }
-        protected override void OnParentSet()
-        {
-            base.OnParentSet();
-            if (Parent == null)
-            {
-                // g�r�n�m kald�r�ld�
-                StopPriceAutoRefresh();
-            }
-        }
-        private void AutoRefreshSwitch_Toggled(object sender, ToggledEventArgs e)
-        {
-            if (e.Value) StartPriceAutoRefresh(TimeSpan.FromSeconds(2));
-            else StopPriceAutoRefresh();
-        }
-        // Price paint state
-        private decimal? _prevPrice;
-        private bool? _prevMarketClosed;
-        // fiyat + market status durumuna g�re UI renkleri uygula
-        // fiyat + market status durumuna g�re UI renkleri uygula (null-safe)
-        private void ApplyPriceUI(decimal? price, bool? marketClosed)
-        {
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                var suffix = marketClosed == true ? " (market closed)" : string.Empty;
-
-                if (MarketPriceLabel != null)
-                    MarketPriceLabel.Text = price.HasValue
-                        ? MarketPriceLabel.Text = price.Value.ToString(CultureInfo.InvariantCulture) + suffix
-                        : "�" + suffix;
-
-                // E�er XAML'de rozet (Frame) yoksa sadece yaz� rengini ayarla ve ��k
-                var hasBadge = this.FindByName<Frame>("MarketPriceBadge") != null;
-                if (!hasBadge)
-                {
-                    if (MarketPriceLabel != null)
-                    {
-                        if (marketClosed == true)
-                        {
-                            // kapal�yken gri ton (arka plan yoksa text'i soluk yapal�m)
-                            MarketPriceLabel.TextColor = Colors.Gray;
-                        }
-                        else
-                        {
-                            // a��kken: y�kseli�/d����e g�re text rengi
-                            if (_prevPrice.HasValue && price.HasValue)
-                            {
-                                if (price.Value > _prevPrice.Value) MarketPriceLabel.TextColor = Colors.Green;
-                                else if (price.Value < _prevPrice.Value) MarketPriceLabel.TextColor = Colors.Red;
-                                else MarketPriceLabel.TextColor = Colors.White;
-                            }
-                            else
-                            {
-                                MarketPriceLabel.TextColor = Colors.White;
-                            }
-                        }
-                    }
-
-                    _prevPrice = price;
-                    _prevMarketClosed = marketClosed;
-                    return;
-                }
-
-                // Rozet var ise hem arka plan� hem text rengini ayarla
-                var badge = this.FindByName<Frame>("MarketPriceBadge");
-                if (badge != null)
-                {
-                    if (marketClosed == true)
-                    {
-                        // piyasa kapal� ? gri
-                        badge.BackgroundColor = Colors.LightGray;
-                        if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.Black;
-                    }
-                    else
-                    {
-                        // �nceki fiyatla kar��la�t�r
-                        if (_prevPrice.HasValue && price.HasValue)
-                        {
-                            if (price.Value > _prevPrice.Value)
-                            {
-                                // y�kseldi ? ye�il
-                                badge.BackgroundColor = Colors.Green;
-                                if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.White;
-                            }
-                            else if (price.Value < _prevPrice.Value)
-                            {
-                                // d��t� ? k�rm�z�
-                                badge.BackgroundColor = Colors.Red;
-                                if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.White;
-                            }
-                            else
-                            {
-                                // de�i�medi ? n�tr
-                                badge.BackgroundColor = Colors.Transparent;
-                                if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.DarkGray;
-                            }
-                        }
-                        else
-                        {
-                            // ilk fiyat ? n�tr
-                            badge.BackgroundColor = Colors.Transparent;
-                            if (MarketPriceLabel != null) MarketPriceLabel.TextColor = Colors.DarkGray;
-                        }
-                    }
-                }
-
-                _prevPrice = price;
-                _prevMarketClosed = marketClosed;
-            });
-        }
-
+     
     }
 }
