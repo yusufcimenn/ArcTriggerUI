@@ -153,7 +153,7 @@ namespace ArcTriggerUI.Dashboard
                 {
                     SymbolSearchEntry.Text = selected.Display;
                     SymbolSuggestions.IsVisible = false; // se�im sonras� listeyi kapat
-
+                    
                   
                 }
             };
@@ -761,11 +761,22 @@ namespace ArcTriggerUI.Dashboard
 
                     MonthsPicker.ItemsSource = _selectedDerivativeSecTypes;
 
-                    // --- Market Data iste ---
-                    RequestSymbolMarketData(_selectedConId.Value, _selectedSectype, "SMART");
+                    // --- Market Data isteği ---
+                    // Önce varsa eski market data iptal et
+                    if (_currentTickerId.HasValue)
+                    {
+                        _twsService.CancelMarketData(_currentTickerId.Value);
+                        _currentTickerId = null;
+                    }
+
+
+                   _currentTickerId= _twsService.RequestMarketData(_selectedConId.Value,marketDataType:3);
+                    // Tick geldiğinde LastPrice’i değişkene kaydet
+                    _twsService.OnMarketData += OnMarketDataTick;
                 }
             }
         }
+
 
 
         // Market data geldiğinde UI'ı güncelle
@@ -1186,37 +1197,55 @@ namespace ArcTriggerUI.Dashboard
 
 
 
-        private void RequestSymbolMarketData(int conId, string secType, string exchange)
+       
+        private double _currentLastPrice;
+
+        // Symbol seçildiğinde çağrılır
+        private void OnSymbolSelected(int conId)
         {
-            // Önce varsa eski ticker'ı iptal et
-            if (_currentTickerId.HasValue)
+            // Önce varsa eski market datayı iptal et
+            if (_currentTickerId != 0)
                 _twsService.CancelMarketData(_currentTickerId.Value);
 
-            // Snapshot delayed data iste
+            // Yeni market data isteği
             _currentTickerId = _twsService.RequestMarketData(
                 conId: conId,
-                secType: secType,
-                exchange: exchange,
+                secType: "STK",
+                exchange: "SMART",
                 currency: "USD",
                 marketDataType: 3 // delayed
             );
 
-            // MarketData event'ini yakala
-            _twsService.OnMarketData += MarketDataReceived;
+            // Tick verilerini dinle
+            _twsService.OnMarketData += OnMarketDataTick;
         }
 
-        private void MarketDataReceived(MarketData data)
+        // Tick geldiğinde
+        private void OnMarketDataTick(MarketData data)
         {
-            if (_currentTickerId.HasValue && data.TickerId == _currentTickerId.Value)
-            {
-                // Örnek: UI Label güncelle
+            if (data.TickerId != _currentTickerId)
+                return;
+
+                _currentLastPrice = data.Last;
+                var lastPriceStr = _currentLastPrice.ToString("0.00", CultureInfo.InvariantCulture);
+
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                   var LastPriceLabel = data.Last > 0 ? data.Last.ToString("F2") : "N/A";
-                  var  BidLabel = data.Bid > 0 ? data.Bid.ToString("F2") : "N/A";
-                   var AskLabel = data.Ask > 0 ? data.Ask.ToString("F2") : "N/A";
+                    mrktLbl.Text = $"Market Price: {lastPriceStr}";
                 });
-            }
+
+                Console.WriteLine($"Symbol: {_selectedSymbol}, LastPrice: {_currentLastPrice}");
+           
+        }
+
+
+        // Sayfadan çıkarken veya başka symbol seçerken
+        private void Cleanup()
+        {
+            if (_currentTickerId != 0)
+                _twsService.CancelMarketData(_currentTickerId.Value);
+
+            _twsService.OnMarketData -= OnMarketDataTick;
         }
 
 
