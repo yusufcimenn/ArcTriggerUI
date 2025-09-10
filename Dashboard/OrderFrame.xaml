@@ -288,7 +288,7 @@
                                 <!-- SECDEF: Months -->
                                 <VerticalStackLayout Spacing="2" WidthRequest="120">
                                     
-                                    <Label Text="Months" Style="{StaticResource HeaderLabel}" />
+                                    <Label Text="Options" Style="{StaticResource HeaderLabel}" />
                                     <Picker x:Name="MonthsPicker"
                                         Title=""
                                         WidthRequest="120"
@@ -560,6 +560,7 @@
 
                                             <Button Text="Save"
                                                 Style="{StaticResource PrimaryAction}"
+                                                    Clicked="OnPostOrderClicked"
                                                />
                                             <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
                                             <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnBreakevenClicked"/>

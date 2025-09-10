@@ -60,8 +60,8 @@ namespace ArcTriggerUI.Dashboard
         private string? _currentMonth;
         private string? _currentExchange;
         private string? _lastConId;
-        private string _currentRight = "C"; // Call=C, Put=P
-        private string _orderMode = "MKT"; // DEFAULT MKT
+        private string _currentRight = ""; // Call=C, Put=P
+        private string _orderMode = ""; // DEFAULT MKT
         private StrikesResponses _lastStrikes; // month de�i�ti�inde gelen set'i tut
 
         // symbols text i�in: arama sonucu listesi ve debounce/iptal i�in CTS
@@ -995,6 +995,108 @@ namespace ArcTriggerUI.Dashboard
             public List<decimal> Call { get; set; } = new();
             public List<decimal> Put { get; set; } = new();
         }
-     
+
+
+        private sealed record OptionOrderPreview(
+    int UnderlyingConId,
+    string Symbol,
+    string SecType,
+    string Right,
+    string ExpiryYyyymmdd,
+    double Strike,
+    string Exchange,
+    int Quantity,
+    string OrderMode,     // "MKT" / "LMT"
+    double? LimitPrice,
+    int OptionConId
+);
+
+        private async void OnPostOrderClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                // --- Right & OrderMode'u UI'dan oku (event'e güvenme)
+                var rightCode = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";   // Put seçiliyse P, değilse C
+                var rightText = rightCode == "P" ? "Put" : "Call";
+                var orderMode = (LmtRadioButton?.IsChecked ?? false) ? "LMT" : "MKT";
+
+                // --- 1) UI doğrulamaları (aynı)
+                if (string.IsNullOrWhiteSpace(_selectedSymbol))
+                { await ShowAlert("Uyarı", "Lütfen bir sembol seçin."); return; }
+
+                if (_selectedConId is null || string.IsNullOrWhiteSpace(_selectedSectype))
+                { await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin."); return; }
+
+                if (MaturityDateLabel?.SelectedItem is not string expiryYyyymmdd || string.IsNullOrWhiteSpace(expiryYyyymmdd))
+                { await ShowAlert("Uyarı", "Lütfen bir vade (expiration) seçin."); return; }
+
+                double strike;
+                if (StrikesPicker?.SelectedItem is double d) strike = d;
+                else if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out strike))
+                { await ShowAlert("Uyarı", "Lütfen bir strike seçin."); return; }
+
+                if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
+                { await ShowAlert("Uyarı", "Miktar (adet) geçersiz."); return; }
+
+                double? limitPrice = null;
+                if (orderMode == "LMT")
+                {
+                    if (!TryParseDouble(TriggerEntry?.Text, out var lim) || lim <= 0)
+                    { await ShowAlert("Uyarı", "Limit emir için fiyat (Trigger) gerekli."); return; }
+                    limitPrice = lim;
+                }
+
+                // --- 2) (Opsiyonel) option params al, exchange seç
+                var optParams = await _twsService.GetOptionParamsAsync(
+                    underlyingConId: _selectedConId.Value,
+                    symbol: _selectedSymbol!,
+                    underlyingSecType: _selectedSectype!,
+                    futFopExchange: ""
+                );
+
+                var allExchanges = optParams.Select(p => p.Exchange).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList();
+                var exchange = allExchanges.FirstOrDefault(x => string.Equals(x, "SMART", StringComparison.OrdinalIgnoreCase))
+                            ?? allExchanges.FirstOrDefault()
+                            ?? "SMART";
+
+                // --- 3) Yeni imzaya göre option conId çöz (yalnızca önizleme)
+                var optionConId = await _twsService.ResolveOptionConidAsync(
+                    conId: _selectedConId.Value,
+                    secType: _selectedSectype!,
+                    exchange: exchange,
+                    right: rightCode,                    // burada UI'dan okunan kodu kullan
+                    yyyymmdd: expiryYyyymmdd,
+                    strike: strike
+                );
+
+                // --- 4) Önizleme
+                var orderModeLine = orderMode == "LMT" ? $"LMT @ {limitPrice!.Value.ToString(CultureInfo.InvariantCulture)}" : "MKT";
+                var preview =
+        $@"Önizleme (Send Order için hazır)
+
+Symbol      : {_selectedSymbol}
+UnderlyingId: {_selectedConId}
+SecType     : {_selectedSectype}
+Right       : {rightText} ({rightCode})
+Expiry      : {expiryYyyymmdd}
+Strike      : {strike.ToString(CultureInfo.InvariantCulture)}
+Exchange    : {exchange}
+Qty         : {qty}
+OrderMode   : {orderModeLine}
+OptionConId : {optionConId}";
+
+                await ShowAlert("Önizleme", preview, "OK");
+                // Burada placeOrder YOK. Ayrı SendOrderAsync yazacağız.
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { await ShowAlert("Hata", ex.Message); }
+        }
+
+        // Küçük yardımcı
+        private static bool TryParseDouble(string? s, out double v) =>
+            double.TryParse((s ?? string.Empty).Trim().Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out v);
+
+
+
     }
 }

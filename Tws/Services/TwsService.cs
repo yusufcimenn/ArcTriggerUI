@@ -83,20 +83,19 @@ namespace ArcTriggerUI.Tws.Services
         }
 
         public async Task<int> ResolveOptionConidAsync(
-            string symbol, string exchange, string right, string yyyymmdd, double strike,
+            int conId, string secType, string exchange, string right, string yyyymmdd, double strike,
             string? tradingClass = null, string? multiplier = null, CancellationToken ct = default)
         {
-            var c = new Contract
-            {
-                Symbol = symbol,
-                SecType = "OPT",
-                Right = right,
-                LastTradeDateOrContractMonth = yyyymmdd,
-                Strike = strike,
-                Exchange = exchange,
-                TradingClass = tradingClass,
-                Multiplier = multiplier
-            };
+            var c = new OptionContractBuilder()
+                .WithConId(conId)
+                .WithExchange(exchange)
+                .WithRight(right)
+                .WithExpiry(yyyymmdd)
+                .WithStrike(strike)
+                .WithSecType(secType)
+                .WithMultiplier(multiplier)
+                .WithTradingClass(tradingClass)
+                .Build();
 
             var list = await GetContractDetailsAsync(c, ct).ConfigureAwait(false);
             var hit = list.FirstOrDefault() ?? throw new InvalidOperationException("Tekilleşmedi: contract bulunamadı.");
