@@ -76,7 +76,7 @@ namespace ArcTriggerUI.Tws.Utils
         {
             _contract = new Contract
             {
-                SecType = "OPT",   // sadece opsiyon
+                // SecType = "OPT",   // sadece opsiyon
                 Exchange = "SMART",
                 Currency = "USD"
             };

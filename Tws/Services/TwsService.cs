@@ -31,7 +31,7 @@ namespace ArcTriggerUI.Tws.Services
         private bool isConnected = false;
         public async Task ConnectAsync(string host, int port, int clientId, CancellationToken ct = default)
         {
-            if (isConnected==false)
+            if (isConnected == false)
             {
                 _nextOrderIdTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 Connect(host, port, clientId);
@@ -87,6 +87,7 @@ namespace ArcTriggerUI.Tws.Services
         {
             var c = new OptionContractBuilder()
                 .WithConId(conId)
+                .WithSecType(secType)
                 .WithExchange(exchange)
                 .WithRight(right)
                 .WithExpiry(yyyymmdd)
@@ -143,7 +144,10 @@ namespace ArcTriggerUI.Tws.Services
         public Task<int> PlaceBreakevenAsync(
             Contract contract, int qty,
             string tif = "DAY", string? account = null, bool close = true, CancellationToken ct = default)
-        {
+        {   
+            if (qty <= 0)
+                throw new ArgumentOutOfRangeException(nameof(qty), "Quantity must be positive.");
+
             var ob = new OrderBuilder()
                 .WithAction("SELL")
                 .WithOrderType("MKT")
@@ -154,6 +158,33 @@ namespace ArcTriggerUI.Tws.Services
 
             return PlaceOrderAsync(contract, ob.Build(), ct);
         }
+
+        public Task<int> PlaceProfitAsync(
+            Contract contract, double percent, int totalQty, string tif = "DAY", string? account = null, bool close = true, CancellationToken ct = default)
+        {
+            if (percent <= 0 || percent > 1)
+                throw new ArgumentOutOfRangeException(nameof(percent), "Percent must be between 0 and 1.");
+
+            if (totalQty <= 0)
+                throw new ArgumentOutOfRangeException(nameof(totalQty), "Quantity must be positive.");
+
+            var qty = (int)Math.Round(totalQty * percent, MidpointRounding.AwayFromZero);
+            if (qty == 0)
+                throw new InvalidOperationException("Calculated quantity is zero. Adjust percent or totalQty.");
+
+            var order = new OrderBuilder()
+                .WithAction("SELL")
+                .WithOrderType("MKT")
+                .WithQuantity(qty)
+                .WithTif(tif)
+                .WithOpenClose(close ? "C" : "O");
+
+            if (!string.IsNullOrWhiteSpace(account))
+                order.WithAccount(account);
+
+            return PlaceOrderAsync(contract, order.Build(), ct);
+        }
+
 
         public Task<int> PlaceStopMarketAsync(
             Contract contract, int qty, double stopTrigger,
