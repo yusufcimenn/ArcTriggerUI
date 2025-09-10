@@ -1,3 +1,4 @@
+
 using ArcTriggerUI.Const;
 using ArcTriggerUI.Dashboard;
 using ArcTriggerUI.Dtos;
@@ -72,7 +73,7 @@ namespace ArcTriggerUI.Dashboard
 
         // symbols text i�in: sembol -> conid e�lemesi ve se�ilen conid
         private readonly Dictionary<string, long> _symbolConidMap = new(StringComparer.OrdinalIgnoreCase);
-        
+
 
         // marketprice için: fiyat isteklerini yönetmek için CTS
         private CancellationTokenSource? _priceCts; // marketprice için
@@ -133,13 +134,13 @@ namespace ArcTriggerUI.Dashboard
         }
         private ObservableCollection<SymbolDisplay> _symbolResults = new();
         private List<SymbolMatch> _allSymbolMatches = new();
-        private List<string>SecTypeStk = new();
+        private List<string> SecTypeStk = new();
         public OrderFrame(TwsService twsService)
         {
 
             InitializeComponent();
             InitHotSections();
-           
+
             _twsService = twsService;
             twsService.ConnectAsync("127.0.0.1", 7497, 0);
 
@@ -152,8 +153,12 @@ namespace ArcTriggerUI.Dashboard
                 {
                     SymbolSearchEntry.Text = selected.Display;
                     SymbolSuggestions.IsVisible = false; // se�im sonras� listeyi kapat
+
+                  
                 }
             };
+
+
             var panGesture = new PanGestureRecognizer();
             panGesture.PanUpdated += (s, e) =>
             {
@@ -173,7 +178,7 @@ namespace ArcTriggerUI.Dashboard
             ContentGrid.GestureRecognizers.Add(panGesture);
 
             // >>> fiyat� periyodik �ek
-          
+
         }
 
 
@@ -307,7 +312,7 @@ namespace ArcTriggerUI.Dashboard
         private string _selectedOrderMode = "MKT";    // Default
 
         // OrderType (Call/Put)
-      
+
 
         // OrderMode (MKT/LMT)
         private void OnOrderModeCheckedChanged(object sender, CheckedChangedEventArgs e)
@@ -698,7 +703,7 @@ namespace ArcTriggerUI.Dashboard
 
         #region Api Request || Api �stek 
 
-        
+
         private async Task SymbolAPI(string value)
         {
             _symbolResults.Clear();
@@ -734,6 +739,8 @@ namespace ArcTriggerUI.Dashboard
         }
 
         private List<string> _selectedDerivativeSecTypes = new();
+        private int? _currentTickerId = null;
+
         private void SymbolSuggestions_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (e.CurrentSelection.FirstOrDefault() is SymbolDisplay selectedDisplay)
@@ -741,47 +748,29 @@ namespace ArcTriggerUI.Dashboard
                 SymbolSearchEntry.Text = selectedDisplay.Display;
                 SymbolSuggestions.IsVisible = false;
 
-                // Se�ilen Symbol'a ait ConId'yi al
-                var symbolText = selectedDisplay.Display.Split(' ')[0]; // "AA NYSE" -> "AA"
-
+                var symbolText = selectedDisplay.Display.Split(' ')[0];
                 var match = _allSymbolMatches.FirstOrDefault(s => s.Symbol == symbolText);
                 if (match != null)
                 {
-                    // ConId üzerinden derivative sec type’ları al
                     _selectedConId = match.ConId;
                     _selectedSymbol = match.Symbol;
                     _selectedSectype = match.SecType;
-
-                    // Eğer ConId’ye göre TWS’den secType’ları alacak başka bir API çağrısı varsa onu kullan
-                    // Örnek: GetOptionParamsAsync veya benzeri
-                    // _selectedDerivativeSecTypes = await _twsService.GetSecTypesByConIdAsync(conId);
-
-                    // �u an elimizde SymbolMatch i�indeki DerivativeSecTypes var
-                    _selectedDerivativeSecTypes.Add(_selectedSectype);
                     _selectedDerivativeSecTypes = match.DerivativeSecTypes.ToList();
-                    if (!string.IsNullOrEmpty(_selectedSectype) &&
-    !_selectedDerivativeSecTypes.Contains(_selectedSectype))
-                    {
-                        _selectedDerivativeSecTypes.Add(_selectedSectype);
-                    }
+                    if (!_selectedDerivativeSecTypes.Contains(_selectedSectype))
+                        _selectedDerivativeSecTypes.Insert(0, _selectedSectype);
 
-                    // Default değer (örnek: "STK") en başa ekle
-                
-                    // Picker�a ata
                     MonthsPicker.ItemsSource = _selectedDerivativeSecTypes;
-                    //if (_selectedDerivativeSecTypes.Count > 0)
-                    //    SecTypePicker.SelectedIndex = 0; // İlk öğeyi seçili yap
-                }
-                else
-                {
-                    _selectedDerivativeSecTypes.Clear();
-                    MonthsPicker.ItemsSource = null;
-                }
 
-                // Debug
-                Console.WriteLine($"ConId {match?.ConId}: " + string.Join(", ", _selectedDerivativeSecTypes));
+                    // --- Market Data iste ---
+                    RequestSymbolMarketData(_selectedConId.Value, _selectedSectype, "SMART");
+                }
             }
         }
+
+
+        // Market data geldiğinde UI'ı güncelle
+
+
 
         private async void LoadOptionParams_Clicked(object sender, EventArgs e)
         {
@@ -863,7 +852,7 @@ namespace ArcTriggerUI.Dashboard
                 {
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
-                       var lasttPrice = $"Last Price: {data.Last}";
+                        var lasttPrice = $"Last Price: {data.Last}";
                         var bidPrice = $"Bid: {data.Bid}";
                         var askPrice = $"Ask: {data.Ask}";
                     });
@@ -872,11 +861,11 @@ namespace ArcTriggerUI.Dashboard
                 await Task.Delay(500, ct); // yarım saniye aralıklarla güncelle
             }
         }
-        private async void StartMarketPrice(object sender,EventArgs e)
+        private async void StartMarketPrice(object sender, EventArgs e)
         {
             try
             {
-               
+
 
                 if (_cts == null || _cts.IsCancellationRequested)
                     _cts = new CancellationTokenSource();
@@ -886,7 +875,7 @@ namespace ArcTriggerUI.Dashboard
             }
             catch (Exception ex)
             {
-                 Console.WriteLine("Hata", ex.Message, "OK");
+                Console.WriteLine("Hata", ex.Message, "OK");
             }
         }
 
@@ -972,8 +961,8 @@ namespace ArcTriggerUI.Dashboard
         // XAML: TextChanged="OnSymbolSearchTextChanged"
         private async void OnSymbolSearchTextChanged(object sender, TextChangedEventArgs e)
         {
-                SymbolAPI(SymbolSearchEntry.Text);
-          
+            SymbolAPI(SymbolSearchEntry.Text);
+
         }
 
         private string PickBestExchange(List<string> exchanges)
@@ -1012,7 +1001,7 @@ namespace ArcTriggerUI.Dashboard
     double? LimitPrice,
     int OptionConId
 );
-        private async void SendOrderClicked(object sender,EventArgs e)
+        private async void SendOrderClicked(object sender, EventArgs e)
         {
             try
             {
@@ -1087,7 +1076,7 @@ namespace ArcTriggerUI.Dashboard
 
                 // --- 4) IB'e bağlan ve order gönder
 
-                
+
                 var orderId = await _twsService.PlaceOrderAsync(contract, order);
 
                 await ShowAlert("Başarılı", $"Order gönderildi! OrderId: {orderId}");
@@ -1195,6 +1184,40 @@ namespace ArcTriggerUI.Dashboard
         private static bool TryParseDouble(string? s, out double v) =>
             double.TryParse((s ?? string.Empty).Trim().Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out v);
 
+
+
+        private void RequestSymbolMarketData(int conId, string secType, string exchange)
+        {
+            // Önce varsa eski ticker'ı iptal et
+            if (_currentTickerId.HasValue)
+                _twsService.CancelMarketData(_currentTickerId.Value);
+
+            // Snapshot delayed data iste
+            _currentTickerId = _twsService.RequestMarketData(
+                conId: conId,
+                secType: secType,
+                exchange: exchange,
+                currency: "USD",
+                marketDataType: 3 // delayed
+            );
+
+            // MarketData event'ini yakala
+            _twsService.OnMarketData += MarketDataReceived;
+        }
+
+        private void MarketDataReceived(MarketData data)
+        {
+            if (_currentTickerId.HasValue && data.TickerId == _currentTickerId.Value)
+            {
+                // Örnek: UI Label güncelle
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                   var LastPriceLabel = data.Last > 0 ? data.Last.ToString("F2") : "N/A";
+                  var  BidLabel = data.Bid > 0 ? data.Bid.ToString("F2") : "N/A";
+                   var AskLabel = data.Ask > 0 ? data.Ask.ToString("F2") : "N/A";
+                });
+            }
+        }
 
 
     }
