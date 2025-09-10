@@ -82,6 +82,26 @@ namespace ArcTriggerUI.Tws.Utils
             };
         }
 
+        public OptionContractBuilder WithSecType(string secType)
+        {
+            _contract.SecType = secType;
+            return this;
+        }
+
+        public OptionContractBuilder WithTradingClass(string tradingClass)
+        {
+            if (tradingClass == null) return this;
+            _contract.TradingClass = tradingClass;
+            return this;
+        }
+
+        public OptionContractBuilder WithMultiplier(string multiplier)
+        {       
+            if (multiplier == null) return this;
+            _contract.Multiplier = multiplier;
+            return this;
+        }
+
         public OptionContractBuilder WithConId(int conId)
         {
             _contract.ConId = conId;
