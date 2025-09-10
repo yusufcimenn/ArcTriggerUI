@@ -8,6 +8,7 @@ using IBApi;
 // SymbolMatch, ContractInfo, OptionChainParams modellerin buradaysa
 using ArcTriggerUI.Tws.Models;
 using ArcTriggerUI.Tws.Utils;
+using ArcTriggerUI.Dtos;
 
 namespace ArcTriggerUI.Tws.Services
 {
@@ -83,10 +84,10 @@ namespace ArcTriggerUI.Tws.Services
         }
 
         public async Task<int> ResolveOptionConidAsync(
-            int conId, string secType, string exchange, string right, string yyyymmdd, double strike, CancellationToken ct = default)
+            string symbol, string secType, string exchange, string right, string yyyymmdd, double strike, CancellationToken ct = default)
         {
             var c = new OptionContractBuilder()
-                .WithConId(conId)
+                .WithSymbol(symbol)
                 .WithSecType(secType)
                 .WithExchange(exchange)
                 .WithRight(right)
@@ -144,7 +145,7 @@ namespace ArcTriggerUI.Tws.Services
         public Task<int> PlaceBreakevenAsync(
             Contract contract, int qty,
             string tif = "DAY", string? account = null, bool close = true, CancellationToken ct = default)
-        {   
+        {
             if (qty <= 0)
                 throw new ArgumentOutOfRangeException(nameof(qty), "Quantity must be positive.");
 
@@ -236,7 +237,9 @@ namespace ArcTriggerUI.Tws.Services
             var stop_abs = R2(triggerPrice - stopLoss);
             var stop_limit = R2(stop_abs - stopLimitOffset);
 
-            var c = new Contract { ConId = conId, Exchange = "SMART", Currency = "USD" };
+            var c = new OptionContractBuilder()
+                .WithConId(conId)
+                .Build();
 
             var parentB = new OrderBuilder()
                 .WithAction("BUY")
@@ -277,7 +280,9 @@ namespace ArcTriggerUI.Tws.Services
             var stop_abs = R2(triggerPrice - stopLoss);
             var stop_limit = R2(stop_abs - stopLimitOffset);
 
-            var c = new Contract { ConId = conId, Exchange = "SMART", Currency = "USD" };
+            var c = new OptionContractBuilder()
+                .WithConId(conId)
+                .Build();
 
             var parentB = new OrderBuilder()
                 .WithAction("BUY")
@@ -306,6 +311,58 @@ namespace ArcTriggerUI.Tws.Services
 
             return (parentId, childId);
         }
+
+        public async Task<(int parentId, int childId)> ComplateOrder(
+            OptionOrderPreview orderPreview,
+            double stopLoss,
+            string tif = "DAY",
+            double stopLimitOffset = 0.05,
+            bool outsideRth = false,
+            string? account = null,
+            CancellationToken ct = default)
+        {
+            if (orderPreview.OrderMode.Equals("MKT", StringComparison.OrdinalIgnoreCase))
+            {
+                return await PlaceMarketBuyWithProtectiveStopAsync(
+                    conId: orderPreview.OptionConId,
+                    triggerPrice: orderPreview.LimitPrice ?? 0, // triggerPrice için LimitPrice ya da 0
+                    stopLoss: stopLoss,
+                    quantity: orderPreview.Quantity,
+                    tif: tif,
+                    outsideRth: outsideRth,
+                    account: account,
+                    stopLimitOffset: stopLimitOffset,
+                    ct: ct
+                    );
+            }
+            else if (orderPreview.OrderMode.Equals("LMT", StringComparison.OrdinalIgnoreCase))
+            {
+                // LMT için offset = (LimitPrice - triggerPrice)
+                if (orderPreview.LimitPrice is null)
+                    throw new ArgumentException("LimitPrice boş olamaz (LMT için).");
+
+                var triggerPrice = orderPreview.LimitPrice.Value;
+                var offset = 0.0; // ister LimitPrice’ı doğrudan kullan, offset 0 kabul et
+
+                return await PlaceBreakoutBuyStopLimitWithProtectiveStopAsync(
+                    conId: orderPreview.OptionConId,
+                    triggerPrice: triggerPrice,
+                    offset: offset,
+                    stopLoss: stopLoss,
+                    quantity: orderPreview.Quantity,
+                    tif: tif,
+                    outsideRth: outsideRth,
+                    account: account,
+                    stopLimitOffset: stopLimitOffset,
+                    ct: ct
+                    );
+            }
+            else
+            {
+                throw new NotSupportedException($"Desteklenmeyen OrderMode: {orderPreview.OrderMode}");
+            }
+        }
+
 
         // Snapshot
 
