@@ -5,6 +5,7 @@ namespace ArcTriggerUI.Tws.Models
         public int ConId { get; set; }
         public int TickerId { get; set; }
 
+        public double Price { get; set; }
         public double Bid { get; set; }
         public double Ask { get; set; }
         public double Last { get; set; }
@@ -14,6 +15,7 @@ namespace ArcTriggerUI.Tws.Models
         public double Open { get; set; }
         public long   Volume { get; set; }
 
+        public int Field { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
         public override string ToString() =>

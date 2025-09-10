@@ -83,8 +83,7 @@ namespace ArcTriggerUI.Tws.Services
         }
 
         public async Task<int> ResolveOptionConidAsync(
-            int conId, string secType, string exchange, string right, string yyyymmdd, double strike,
-            string? tradingClass = null, string? multiplier = null, CancellationToken ct = default)
+            int conId, string secType, string exchange, string right, string yyyymmdd, double strike, CancellationToken ct = default)
         {
             var c = new OptionContractBuilder()
                 .WithConId(conId)
@@ -92,9 +91,6 @@ namespace ArcTriggerUI.Tws.Services
                 .WithRight(right)
                 .WithExpiry(yyyymmdd)
                 .WithStrike(strike)
-                .WithSecType(secType)
-                .WithMultiplier(multiplier)
-                .WithTradingClass(tradingClass)
                 .Build();
 
             var list = await GetContractDetailsAsync(c, ct).ConfigureAwait(false);
@@ -347,12 +343,18 @@ namespace ArcTriggerUI.Tws.Services
                 case 14: d.Open = price; break;
             }
 
+            d.Price = price;
+            d.Field = field;
+
             d.Timestamp = DateTime.UtcNow;
 
+            // Debug
             Console.WriteLine(
                 $"[{d.Timestamp:HH:mm:ss}] Tick {field} Price={price} " +
                 $"ConId={d.ConId} Last={d.Last} Bid={d.Bid} Ask={d.Ask} O={d.Open} H={d.High} L={d.Low} C={d.Close}"
             );
+
+            OnMarketData?.Invoke(d);
         }
 
         public override void tickSize(int tickerId, int field, int size)
@@ -368,6 +370,7 @@ namespace ArcTriggerUI.Tws.Services
 
             d.Timestamp = DateTime.UtcNow;
 
+            //Debug
             Console.WriteLine($"[{d.Timestamp:HH:mm:ss}] TickSize {field} Size={size}");
         }
 
