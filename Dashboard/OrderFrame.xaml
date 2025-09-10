@@ -261,9 +261,10 @@
                                                VerticalTextAlignment="Center"
                                                HorizontalTextAlignment="Center"
                                                TextColor="White" />
+                                      
                                     </Frame>
+                                 
 
-                                   
                                 </VerticalStackLayout>
 
                                 <!-- SECDEF: SecType -->
@@ -562,6 +563,7 @@
                                                />
                                             <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>
                                             <Button Text="Breakeven"  Style="{StaticResource ActionNeutral}" Clicked="OnBreakevenClicked"/>
+                                            <Button Text="Çek"  Style="{StaticResource ActionNeutral}" Clicked="StartMarketPrice"/>
                                         
                                             <Button Text="Cancel"
                 BackgroundColor="IndianRed"

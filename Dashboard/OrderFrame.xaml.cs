@@ -18,6 +18,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Resources;
+using System.Security.AccessControl;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -849,6 +850,43 @@ namespace ArcTriggerUI.Dashboard
             }
         }
 
+        private int _tickerId = -1;
+        private CancellationTokenSource? _cts;
+        private async Task UpdatePricesLoop(int tickerId, CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                var data = _twsService.GetLatestData(tickerId);
+                if (data != null)
+                {
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                       var lasttPrice = $"Last Price: {data.Last}";
+                        var bidPrice = $"Bid: {data.Bid}";
+                        var askPrice = $"Ask: {data.Ask}";
+                    });
+                }
+
+                await Task.Delay(500, ct); // yarım saniye aralıklarla güncelle
+            }
+        }
+        private async void StartMarketPrice(object sender,EventArgs e)
+        {
+            try
+            {
+               
+
+                if (_cts == null || _cts.IsCancellationRequested)
+                    _cts = new CancellationTokenSource();
+
+                int tickerId = _twsService.RequestMarketDataBySymbol(_selectedSymbol);
+                await UpdatePricesLoop(tickerId, _cts.Token);
+            }
+            catch (Exception ex)
+            {
+                 Console.WriteLine("Hata", ex.Message, "OK");
+            }
+        }
 
 
 
