@@ -660,10 +660,102 @@ namespace ArcTriggerUI.Dashboard
         #endregion
 
         #region Breakeven Clicked || Breakeven T�kland�
-        private void OnBreakevenClicked(object sender, EventArgs e)
-        {
+        #region Breakeven Clicked || Breakeven T�kland�
+        private bool _isBreakevenBusy = false;
 
+        private async void OnBreakevenClicked(object sender, EventArgs e)
+        {
+            if (_isBreakevenBusy) return;
+            _isBreakevenBusy = true;
+            try
+            {
+                // --- Basit doğrulamalar
+                if (string.IsNullOrWhiteSpace(_selectedSymbol))
+                {
+                    await ShowAlert("Uyarı", "Lütfen bir sembol seçin.");
+                    return;
+                }
+                if (_selectedConId is null || string.IsNullOrWhiteSpace(_selectedSectype))
+                {
+                    await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin.");
+                    return;
+                }
+                if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
+                {
+                    await ShowAlert("Uyarı", "Miktar (adet) geçersiz.");
+                    return;
+                }
+
+                // --- Contract oluştur (OPT ise option conid’yi çöz)
+                Contract contract;
+
+                if (string.Equals(_selectedSectype, "OPT", StringComparison.OrdinalIgnoreCase))
+                {
+                    // UI’den Right/Expiry/Strike’ı çek
+                    var rightCode = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";
+
+                    if (MaturityDateLabel?.SelectedItem is not string expiry || string.IsNullOrWhiteSpace(expiry))
+                    {
+                        await ShowAlert("Uyarı", "Lütfen bir vade (expiration) seçin.");
+                        return;
+                    }
+                    if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(),
+                                         NumberStyles.Any, CultureInfo.InvariantCulture, out var strike))
+                    {
+                        await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
+                        return;
+                    }
+
+                    // OptionConId’yi çöz
+                    var optionConId = await _twsService.ResolveOptionConidAsync(
+                        symbol: _selectedSymbol!,
+                        secType: "OPT",
+                        exchange: "SMART",
+                        right: rightCode,
+                        yyyymmdd: expiry,
+                        strike: strike
+                    );
+
+                    contract = new Contract
+                    {
+                        ConId = optionConId,
+                        Symbol = _selectedSymbol!,
+                        SecType = "OPT",
+                        Exchange = "SMART",
+                        Currency = "USD",
+                        LastTradeDateOrContractMonth = expiry,
+                        Strike = strike,
+                        Right = rightCode
+                    };
+                }
+                else
+                {
+                    // STK / FUT vs. için doğrudan seçili conId
+                    contract = new Contract
+                    {
+                        ConId = _selectedConId.Value,
+                        Symbol = _selectedSymbol!,
+                        SecType = _selectedSectype!,
+                        Exchange = "SMART",
+                        Currency = "USD"
+                    };
+                }
+
+                // --- Breakeven: SELL MKT (mevcut serviste hazır)
+                var orderId = await _twsService.PlaceBreakevenAsync(contract, qty);
+
+                await ShowAlert("Gönderildi", $"Breakeven emri gönderildi. OrderId: {orderId}");
+            }
+            catch (Exception ex)
+            {
+                await ShowAlert("Hata", ex.Message);
+            }
+            finally
+            {
+                _isBreakevenBusy = false;
+            }
         }
+        #endregion
         #endregion
 
         #region Offset Preset Clicked || Offset �n Ayar� T�kland�

@@ -10,6 +10,7 @@ namespace ArcTriggerUI.Tws.Services
         protected EReader? _reader;
         private Thread? _readerThread;
         private TaskCompletionSource<int>? _nextOrderIdTcs;
+        private int _nextOrderId;
 
         protected BaseService()
         {
