@@ -29,7 +29,8 @@ namespace ArcTriggerUI.Tws.Services
         private readonly ConcurrentDictionary<int, TaskCompletionSource<string>> _cancelAck = new();
 
         // ---- Bağlantı
-        private bool isConnected = false;
+        public bool isConnected = false;
+        
         public async Task ConnectAsync(string host, int port, int clientId, CancellationToken ct = default)
         {
             if (isConnected == false)
@@ -37,13 +38,14 @@ namespace ArcTriggerUI.Tws.Services
                 _nextOrderIdTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 Connect(host, port, clientId);
                 using var _ = ct.Register(() => _nextOrderIdTcs.TrySetCanceled(ct));
-                await _nextOrderIdTcs.Task.ConfigureAwait(false); // nextValidId bekle
+                _nextOrderId=await _nextOrderIdTcs.Task.ConfigureAwait(false); // nextValidId bekle
                 isConnected = true;
             }
         }
 
-        public override void nextValidId(int orderId)
+        public void nextValidId(int orderId)
         {
+            Console.WriteLine($"Next valid order id: {orderId}");
             _nextOrderId = orderId;
             _nextOrderIdTcs?.TrySetResult(orderId);
         }
@@ -93,6 +95,7 @@ namespace ArcTriggerUI.Tws.Services
                 .WithRight(right)
                 .WithExpiry(yyyymmdd)
                 .WithStrike(strike)
+                .WithSecType(secType)
                 .Build();
 
             var list = await GetContractDetailsAsync(c, ct).ConfigureAwait(false);

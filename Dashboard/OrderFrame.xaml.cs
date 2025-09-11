@@ -1,3 +1,4 @@
+
 using ArcTriggerUI.Const;
 using ArcTriggerUI.Dashboard;
 using ArcTriggerUI.Dtos;
@@ -7,6 +8,7 @@ using ArcTriggerUI.Services;
 using ArcTriggerUI.Tws.Models;
 using ArcTriggerUI.Tws.Services;
 using ArcTriggerUI.Tws.Utils;
+using IBApi;
 using Microsoft.Maui.ApplicationModel;         // MainThread
 using Microsoft.Maui.Controls;                 // MAUI Controls
 using Microsoft.Maui.Controls.Compatibility;
@@ -24,6 +26,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
 using Layout = Microsoft.Maui.Controls.Layout;
+using Order = IBApi.Order;
 
 namespace ArcTriggerUI.Dashboard
 {
@@ -70,7 +73,7 @@ namespace ArcTriggerUI.Dashboard
 
         // symbols text i�in: sembol -> conid e�lemesi ve se�ilen conid
         private readonly Dictionary<string, long> _symbolConidMap = new(StringComparer.OrdinalIgnoreCase);
-        
+
 
         // marketprice için: fiyat isteklerini yönetmek için CTS
         private CancellationTokenSource? _priceCts; // marketprice için
@@ -131,13 +134,13 @@ namespace ArcTriggerUI.Dashboard
         }
         private ObservableCollection<SymbolDisplay> _symbolResults = new();
         private List<SymbolMatch> _allSymbolMatches = new();
-        private List<string>SecTypeStk = new();
+        private List<string> SecTypeStk = new();
         public OrderFrame(TwsService twsService)
         {
 
             InitializeComponent();
             InitHotSections();
-           
+
             _twsService = twsService;
             twsService.ConnectAsync("127.0.0.1", 7497, 0);
 
@@ -150,8 +153,12 @@ namespace ArcTriggerUI.Dashboard
                 {
                     SymbolSearchEntry.Text = selected.Display;
                     SymbolSuggestions.IsVisible = false; // se�im sonras� listeyi kapat
+                    
+                  
                 }
             };
+
+
             var panGesture = new PanGestureRecognizer();
             panGesture.PanUpdated += (s, e) =>
             {
@@ -171,7 +178,7 @@ namespace ArcTriggerUI.Dashboard
             ContentGrid.GestureRecognizers.Add(panGesture);
 
             // >>> fiyat� periyodik �ek
-          
+
         }
 
 
@@ -305,7 +312,7 @@ namespace ArcTriggerUI.Dashboard
         private string _selectedOrderMode = "MKT";    // Default
 
         // OrderType (Call/Put)
-      
+
 
         // OrderMode (MKT/LMT)
         private void OnOrderModeCheckedChanged(object sender, CheckedChangedEventArgs e)
@@ -696,7 +703,7 @@ namespace ArcTriggerUI.Dashboard
 
         #region Api Request || Api �stek 
 
-        
+
         private async Task SymbolAPI(string value)
         {
             _symbolResults.Clear();
@@ -732,6 +739,8 @@ namespace ArcTriggerUI.Dashboard
         }
 
         private List<string> _selectedDerivativeSecTypes = new();
+        private int? _currentTickerId = null;
+
         private void SymbolSuggestions_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (e.CurrentSelection.FirstOrDefault() is SymbolDisplay selectedDisplay)
@@ -739,47 +748,40 @@ namespace ArcTriggerUI.Dashboard
                 SymbolSearchEntry.Text = selectedDisplay.Display;
                 SymbolSuggestions.IsVisible = false;
 
-                // Se�ilen Symbol'a ait ConId'yi al
-                var symbolText = selectedDisplay.Display.Split(' ')[0]; // "AA NYSE" -> "AA"
-
+                var symbolText = selectedDisplay.Display.Split(' ')[0];
                 var match = _allSymbolMatches.FirstOrDefault(s => s.Symbol == symbolText);
                 if (match != null)
                 {
-                    // ConId üzerinden derivative sec type’ları al
                     _selectedConId = match.ConId;
                     _selectedSymbol = match.Symbol;
                     _selectedSectype = match.SecType;
-
-                    // Eğer ConId’ye göre TWS’den secType’ları alacak başka bir API çağrısı varsa onu kullan
-                    // Örnek: GetOptionParamsAsync veya benzeri
-                    // _selectedDerivativeSecTypes = await _twsService.GetSecTypesByConIdAsync(conId);
-
-                    // �u an elimizde SymbolMatch i�indeki DerivativeSecTypes var
-                    _selectedDerivativeSecTypes.Add(_selectedSectype);
                     _selectedDerivativeSecTypes = match.DerivativeSecTypes.ToList();
-                    if (!string.IsNullOrEmpty(_selectedSectype) &&
-    !_selectedDerivativeSecTypes.Contains(_selectedSectype))
+                    if (!_selectedDerivativeSecTypes.Contains(_selectedSectype))
+                        _selectedDerivativeSecTypes.Insert(0, _selectedSectype);
+
+                    MonthsPicker.ItemsSource = _selectedDerivativeSecTypes;
+
+                    // --- Market Data isteği ---
+                    // Önce varsa eski market data iptal et
+                    if (_currentTickerId.HasValue)
                     {
-                        _selectedDerivativeSecTypes.Add(_selectedSectype);
+                        _twsService.CancelMarketData(_currentTickerId.Value);
+                        _currentTickerId = null;
                     }
 
-                    // Default değer (örnek: "STK") en başa ekle
-                
-                    // Picker�a ata
-                    MonthsPicker.ItemsSource = _selectedDerivativeSecTypes;
-                    //if (_selectedDerivativeSecTypes.Count > 0)
-                    //    SecTypePicker.SelectedIndex = 0; // İlk öğeyi seçili yap
-                }
-                else
-                {
-                    _selectedDerivativeSecTypes.Clear();
-                    MonthsPicker.ItemsSource = null;
-                }
 
-                // Debug
-                Console.WriteLine($"ConId {match?.ConId}: " + string.Join(", ", _selectedDerivativeSecTypes));
+                   _currentTickerId= _twsService.RequestMarketData(_selectedConId.Value,marketDataType:3);
+                    // Tick geldiğinde LastPrice’i değişkene kaydet
+                    _twsService.OnMarketData += OnMarketDataTick;
+                }
             }
         }
+
+
+
+        // Market data geldiğinde UI'ı güncelle
+
+
 
         private async void LoadOptionParams_Clicked(object sender, EventArgs e)
         {
@@ -861,7 +863,7 @@ namespace ArcTriggerUI.Dashboard
                 {
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
-                       var lasttPrice = $"Last Price: {data.Last}";
+                        var lasttPrice = $"Last Price: {data.Last}";
                         var bidPrice = $"Bid: {data.Bid}";
                         var askPrice = $"Ask: {data.Ask}";
                     });
@@ -870,11 +872,11 @@ namespace ArcTriggerUI.Dashboard
                 await Task.Delay(500, ct); // yarım saniye aralıklarla güncelle
             }
         }
-        private async void StartMarketPrice(object sender,EventArgs e)
+        private async void StartMarketPrice(object sender, EventArgs e)
         {
             try
             {
-               
+
 
                 if (_cts == null || _cts.IsCancellationRequested)
                     _cts = new CancellationTokenSource();
@@ -884,7 +886,7 @@ namespace ArcTriggerUI.Dashboard
             }
             catch (Exception ex)
             {
-                 Console.WriteLine("Hata", ex.Message, "OK");
+                Console.WriteLine("Hata", ex.Message, "OK");
             }
         }
 
@@ -970,8 +972,8 @@ namespace ArcTriggerUI.Dashboard
         // XAML: TextChanged="OnSymbolSearchTextChanged"
         private async void OnSymbolSearchTextChanged(object sender, TextChangedEventArgs e)
         {
-                SymbolAPI(SymbolSearchEntry.Text);
-          
+            SymbolAPI(SymbolSearchEntry.Text);
+
         }
 
         private string PickBestExchange(List<string> exchanges)
@@ -1010,92 +1012,241 @@ namespace ArcTriggerUI.Dashboard
     double? LimitPrice,
     int OptionConId
 );
+        private async void SendOrderClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                // --- 1) UI doğrulamaları
+                if (string.IsNullOrWhiteSpace(_selectedSymbol))
+                {
+                    await ShowAlert("Uyarı", "Lütfen bir sembol seçin.");
+                    return;
+                }
 
+                if (_selectedConId is null || string.IsNullOrWhiteSpace(_selectedSectype))
+                {
+                    await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin.");
+                    return;
+                }
+
+                if (MaturityDateLabel?.SelectedItem is not string expiry || string.IsNullOrWhiteSpace(expiry))
+                {
+                    await ShowAlert("Uyarı", "Lütfen bir vade (expiration) seçin.");
+                    return;
+                }
+
+                if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var strike))
+                {
+                    await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
+                    return;
+                }
+
+                if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
+                {
+                    await ShowAlert("Uyarı", "Miktar (adet) geçersiz.");
+                    return;
+                }
+
+                var orderMode = (LmtRadioButton?.IsChecked ?? false) ? "LMT" : "MKT";
+                double? limitPrice = null;
+                if (orderMode == "LMT")
+                {
+                    if (!TryParseDouble(TriggerEntry?.Text, out var lim) || lim <= 0)
+                    {
+                        await ShowAlert("Uyarı", "Limit emir için fiyat (Trigger) gerekli.");
+                        return;
+                    }
+                    limitPrice = lim;
+                }
+
+                var right = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";
+
+                // --- 2) Contract oluştur
+                var contract = new Contract
+                {
+                    ConId = _selectedConId.Value,
+                    Symbol = _selectedSymbol!,
+                    SecType = _selectedSectype!,
+                    Exchange = "SMART",
+                    Currency = "USD",
+                    Right = right,
+                    LastTradeDateOrContractMonth = expiry,
+                    Strike = strike
+                };
+
+                // --- 3) Order oluştur
+                var order = new Order
+                {
+                    Action = "BUY",
+                    OrderType = orderMode,
+                    TotalQuantity = qty
+                };
+
+                if (orderMode == "LMT")
+                    order.LmtPrice = limitPrice.Value;
+
+                // --- 4) IB'e bağlan ve order gönder
+
+
+                var orderId = await _twsService.PlaceOrderAsync(contract, order);
+
+                await ShowAlert("Başarılı", $"Order gönderildi! OrderId: {orderId}");
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                await ShowAlert("Hata", ex.Message);
+            }
+        }
         private async void OnPostOrderClicked(object sender, EventArgs e)
         {
             try
             {
-                // --- Right & OrderMode'u UI'dan oku (event'e güvenme)
-                var rightCode = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";   // Put seçiliyse P, değilse C
-                var rightText = rightCode == "P" ? "Put" : "Call";
+
+                // --- UI'dan verileri oku
+                var rightCode = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";
                 var orderMode = (LmtRadioButton?.IsChecked ?? false) ? "LMT" : "MKT";
 
-                // --- 1) UI doğrulamaları (aynı)
                 if (string.IsNullOrWhiteSpace(_selectedSymbol))
-                { await ShowAlert("Uyarı", "Lütfen bir sembol seçin."); return; }
+                {
+                    await ShowAlert("Uyarı", "Lütfen bir sembol seçin.");
+                    return;
+                }
 
                 if (_selectedConId is null || string.IsNullOrWhiteSpace(_selectedSectype))
-                { await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin."); return; }
+                {
+                    await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin.");
+                    return;
+                }
 
-                if (MaturityDateLabel?.SelectedItem is not string expiryYyyymmdd || string.IsNullOrWhiteSpace(expiryYyyymmdd))
-                { await ShowAlert("Uyarı", "Lütfen bir vade (expiration) seçin."); return; }
+                if (MaturityDateLabel?.SelectedItem is not string expiry || string.IsNullOrWhiteSpace(expiry))
+                {
+                    await ShowAlert("Uyarı", "Lütfen bir vade seçin.");
+                    return;
+                }
 
-                double strike;
-                if (StrikesPicker?.SelectedItem is double d) strike = d;
-                else if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out strike))
-                { await ShowAlert("Uyarı", "Lütfen bir strike seçin."); return; }
+                if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var strike))
+                {
+                    await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
+                    return;
+                }
 
                 if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
-                { await ShowAlert("Uyarı", "Miktar (adet) geçersiz."); return; }
+                {
+                    await ShowAlert("Uyarı", "Miktar geçersiz.");
+                    return;
+                }
 
                 double? limitPrice = null;
                 if (orderMode == "LMT")
                 {
                     if (!TryParseDouble(TriggerEntry?.Text, out var lim) || lim <= 0)
-                    { await ShowAlert("Uyarı", "Limit emir için fiyat (Trigger) gerekli."); return; }
+                    {
+                        await ShowAlert("Uyarı", "Limit emir için fiyat gerekli.");
+                        return;
+                    }
                     limitPrice = lim;
                 }
 
-                // --- 2) (Opsiyonel) option params al, exchange seç
-                var optParams = await _twsService.GetOptionParamsAsync(
-                    underlyingConId: _selectedConId.Value,
-                    symbol: _selectedSymbol!,
-                    underlyingSecType: _selectedSectype!,
-                    futFopExchange: ""
-                );
-
-                var allExchanges = optParams.Select(p => p.Exchange).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList();
-                var exchange = allExchanges.FirstOrDefault(x => string.Equals(x, "SMART", StringComparison.OrdinalIgnoreCase))
-                            ?? allExchanges.FirstOrDefault()
-                            ?? "SMART";
-
-                // --- 3) Yeni imzaya göre option conId çöz (yalnızca önizleme)
+                // --- OptionConId çöz
                 var optionConId = await _twsService.ResolveOptionConidAsync(
-                    conId: _selectedConId.Value,
-                    secType: _selectedSectype!,
-                    exchange: exchange,
-                    right: rightCode,                    // burada UI'dan okunan kodu kullan
-                    yyyymmdd: expiryYyyymmdd,
+                    symbol: _selectedSymbol,
+                    secType: "OPT",
+                    exchange: "SMART",
+                    right: rightCode,
+                    yyyymmdd: expiry,
                     strike: strike
                 );
 
-                // --- 4) Önizleme
-                var orderModeLine = orderMode == "LMT" ? $"LMT @ {limitPrice!.Value.ToString(CultureInfo.InvariantCulture)}" : "MKT";
-                var preview =
-        $@"Önizleme (Send Order için hazır)
+                // --- Contract ve Order oluştur
+                var contract = new Contract
+                {
+                    ConId = optionConId,
+                    Symbol = _selectedSymbol,
+                    SecType = _selectedSectype,
+                    Exchange = "SMART",
+                    Currency = "USD",
+                    LastTradeDateOrContractMonth = expiry,
+                    Strike = strike,
+                    Right = rightCode
+                };
 
-Symbol      : {_selectedSymbol}
-UnderlyingId: {_selectedConId}
-SecType     : {_selectedSectype}
-Right       : {rightText} ({rightCode})
-Expiry      : {expiryYyyymmdd}
-Strike      : {strike.ToString(CultureInfo.InvariantCulture)}
-Exchange    : {exchange}
-Qty         : {qty}
-OrderMode   : {orderModeLine}
-OptionConId : {optionConId}";
+                var order = new Order
+                {
+                    Action = "BUY", // veya "SELL"
+                    OrderType = orderMode,
+                    TotalQuantity = qty,
+                    LmtPrice = limitPrice ?? 0
+                };
 
-                await ShowAlert("Önizleme", preview, "OK");
-                // Burada placeOrder YOK. Ayrı SendOrderAsync yazacağız.
+                // --- Order gönder
+                var orderId = await _twsService.PlaceOrderAsync(contract, order);
+
+                await ShowAlert("Başarılı", $"Order gönderildi. OrderId: {orderId}");
             }
-            catch (OperationCanceledException) { }
-            catch (Exception ex) { await ShowAlert("Hata", ex.Message); }
+            catch (Exception ex)
+            {
+                await ShowAlert("Hata", ex.Message);
+            }
         }
+
 
         // Küçük yardımcı
         private static bool TryParseDouble(string? s, out double v) =>
             double.TryParse((s ?? string.Empty).Trim().Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out v);
 
+
+
+       
+        private double _currentLastPrice;
+
+        // Symbol seçildiğinde çağrılır
+        private void OnSymbolSelected(int conId)
+        {
+            // Önce varsa eski market datayı iptal et
+            if (_currentTickerId != 0)
+                _twsService.CancelMarketData(_currentTickerId.Value);
+
+            // Yeni market data isteği
+            _currentTickerId = _twsService.RequestMarketData(
+                conId: conId,
+                secType: "STK",
+                exchange: "SMART",
+                currency: "USD",
+                marketDataType: 3 // delayed
+            );
+
+            // Tick verilerini dinle
+            _twsService.OnMarketData += OnMarketDataTick;
+        }
+
+        // Tick geldiğinde
+        private void OnMarketDataTick(MarketData data)
+        {
+            if (data.TickerId != _currentTickerId)
+                return;
+
+                _currentLastPrice = data.Last;
+                var lastPriceStr = _currentLastPrice.ToString("0.00", CultureInfo.InvariantCulture);
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    mrktLbl.Text = $"Market Price: {lastPriceStr}";
+                });
+
+                Console.WriteLine($"Symbol: {_selectedSymbol}, LastPrice: {_currentLastPrice}");
+           
+        }
+
+
+        // Sayfadan çıkarken veya başka symbol seçerken
+        private void Cleanup()
+        {
+            if (_currentTickerId != 0)
+                _twsService.CancelMarketData(_currentTickerId.Value);
+
+            _twsService.OnMarketData -= OnMarketDataTick;
+        }
 
 
     }

@@ -10,14 +10,21 @@ namespace ArcTriggerUI.Dtos.Orders
     {
         public string Symbol { get; set; }
         public decimal TriggerPrice { get; set; }
-        public string OrderType { get; set; }
+        public int ConId { get; set; }
+        public string SecType { get; set; }
         public string OrderMode { get; set; }
         public decimal Offset { get; set; }
-        public decimal Strike { get; set; }
+        public double Strike { get; set; }
         public string Expiry { get; set; }
         public decimal PositionSize { get; set; }
         public decimal StopLoss { get; set; }
         public decimal ProfitTaking { get; set; }
+        public decimal Quantity { get; set; }
+        public decimal LimitPrice { get; set; }
+        public string Right { get; set; } 
+        public string Exchange { get; set; } 
+        public int OptionConId { get; set; } 
+    
 
         //public override string ToString()
         //{

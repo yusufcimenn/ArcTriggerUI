@@ -58,7 +58,14 @@ namespace ArcTriggerUI.Tws.Services
                 Client.eDisconnect();
         }
 
-        public int GetNextOrderId() => _nextOrderId++;
+        public int GetNextOrderId()
+        {
+            if (_nextOrderId <= 0)
+                throw new InvalidOperationException("Henüz geçerli bir orderId alınmadı (nextValidId gelmedi).");
+
+            return _nextOrderId++;
+        }
+
 
         // --------------------
         // EWrapper Zorunluları
