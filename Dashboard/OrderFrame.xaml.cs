@@ -65,6 +65,7 @@ namespace ArcTriggerUI.Dashboard
         private string? _lastConId;
         private string _currentRight = ""; // Call=C, Put=P
         private string _orderMode = ""; // DEFAULT MKT
+        private int orderId;
         private StrikesResponses _lastStrikes; // month de�i�ti�inde gelen set'i tut
 
         // symbols text i�in: arama sonucu listesi ve debounce/iptal i�in CTS
@@ -653,9 +654,23 @@ namespace ArcTriggerUI.Dashboard
         #endregion
 
         #region Trail Text Changed || Trail Metin De�i�ikli�i
-        private void OnTrailClicked(object sender, EventArgs e)
+        private async void OnTrailClicked(object sender, EventArgs e)
         {
-            Console.WriteLine("Invalidate action triggered");
+            try
+            {
+                // Örnek: UI'dan veya koddan orderId al
+            
+                
+
+                // Order iptali
+                 await _twsService.CancelOrderAsync(orderId);
+
+                 ShowAlert("Başarılı", $"Order {orderId} iptal edildi.");
+            }
+            catch (Exception ex)
+            {
+                await ShowAlert("Hata", $"Order iptal edilemedi: {ex.Message}");
+            }
         }
         #endregion
 
@@ -1195,7 +1210,7 @@ namespace ArcTriggerUI.Dashboard
                     .Build();
 
                 var parentId = await _twsService.PlaceOrderAsync(contract, parentOrder);
-
+                orderId=parentId;
                 // --- Stop Loss Child Order
                 string childAction = parentAction == "BUY" ? "SELL" : "BUY"; // parent aksi yönünde
                 var stopOrder = new OrderBuilder()
