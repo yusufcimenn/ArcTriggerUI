@@ -561,6 +561,7 @@
 
                                             <Button Text="Save"
                                                 Style="{StaticResource PrimaryAction}"
+                                                    
                                                     Clicked="OnPostOrderClicked"
                                                />
                                             <Button Text="Invalidate" Style="{StaticResource ActionDanger}" Clicked="OnTrailClicked"/>

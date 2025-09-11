@@ -142,7 +142,7 @@ namespace ArcTriggerUI.Dashboard
             InitHotSections();
 
             _twsService = twsService;
-            twsService.ConnectAsync("127.0.0.1", 7497, 0);
+            twsService.ConnectAsync("127.0.0.1", 7496, 0);
 
             SymbolSuggestions.ItemsSource = _symbolResults;
 
@@ -1012,97 +1012,11 @@ namespace ArcTriggerUI.Dashboard
     double? LimitPrice,
     int OptionConId
 );
-        private async void SendOrderClicked(object sender, EventArgs e)
-        {
-            try
-            {
-                // --- 1) UI doğrulamaları
-                if (string.IsNullOrWhiteSpace(_selectedSymbol))
-                {
-                    await ShowAlert("Uyarı", "Lütfen bir sembol seçin.");
-                    return;
-                }
 
-                if (_selectedConId is null || string.IsNullOrWhiteSpace(_selectedSectype))
-                {
-                    await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin.");
-                    return;
-                }
-
-                if (MaturityDateLabel?.SelectedItem is not string expiry || string.IsNullOrWhiteSpace(expiry))
-                {
-                    await ShowAlert("Uyarı", "Lütfen bir vade (expiration) seçin.");
-                    return;
-                }
-
-                if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var strike))
-                {
-                    await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
-                    return;
-                }
-
-                if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
-                {
-                    await ShowAlert("Uyarı", "Miktar (adet) geçersiz.");
-                    return;
-                }
-
-                var orderMode = (LmtRadioButton?.IsChecked ?? false) ? "LMT" : "MKT";
-                double? limitPrice = null;
-                if (orderMode == "LMT")
-                {
-                    if (!TryParseDouble(TriggerEntry?.Text, out var lim) || lim <= 0)
-                    {
-                        await ShowAlert("Uyarı", "Limit emir için fiyat (Trigger) gerekli.");
-                        return;
-                    }
-                    limitPrice = lim;
-                }
-
-                var right = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";
-
-                // --- 2) Contract oluştur
-                var contract = new Contract
-                {
-                    ConId = _selectedConId.Value,
-                    Symbol = _selectedSymbol!,
-                    SecType = _selectedSectype!,
-                    Exchange = "SMART",
-                    Currency = "USD",
-                    Right = right,
-                    LastTradeDateOrContractMonth = expiry,
-                    Strike = strike
-                };
-
-                // --- 3) Order oluştur
-                var order = new Order
-                {
-                    Action = "BUY",
-                    OrderType = orderMode,
-                    TotalQuantity = qty
-                };
-
-                if (orderMode == "LMT")
-                    order.LmtPrice = limitPrice.Value;
-
-                // --- 4) IB'e bağlan ve order gönder
-
-
-                var orderId = await _twsService.PlaceOrderAsync(contract, order);
-
-                await ShowAlert("Başarılı", $"Order gönderildi! OrderId: {orderId}");
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                await ShowAlert("Hata", ex.Message);
-            }
-        }
         private async void OnPostOrderClicked(object sender, EventArgs e)
         {
             try
             {
-
                 // --- UI'dan verileri oku
                 var rightCode = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";
                 var orderMode = (LmtRadioButton?.IsChecked ?? false) ? "LMT" : "MKT";
@@ -1148,6 +1062,12 @@ namespace ArcTriggerUI.Dashboard
                     limitPrice = lim;
                 }
 
+                if (!TryParseDouble(StopLossEntry?.Text, out var stopLossPrice) || stopLossPrice <= 0)
+                {
+                    await ShowAlert("Uyarı", "Stop loss fiyatı geçersiz.");
+                    return;
+                }
+
                 // --- OptionConId çöz
                 var optionConId = await _twsService.ResolveOptionConidAsync(
                     symbol: _selectedSymbol,
@@ -1158,7 +1078,7 @@ namespace ArcTriggerUI.Dashboard
                     strike: strike
                 );
 
-                // --- Contract ve Order oluştur
+                // --- Contract oluştur
                 var contract = new Contract
                 {
                     ConId = optionConId,
@@ -1171,24 +1091,45 @@ namespace ArcTriggerUI.Dashboard
                     Right = rightCode
                 };
 
-                var order = new Order
-                {
-                    Action = "BUY", // veya "SELL"
-                    OrderType = orderMode,
-                    TotalQuantity = qty,
-                    LmtPrice = limitPrice ?? 0
-                };
+                // --- Parent Order (BUY veya SELL, Call/Put mantığı)
+                string parentAction = rightCode == "C" ? "BUY" : "SELL";  // örnek: Call için BUY, Put için SELL
+                var parentOrder = new OrderBuilder()
+                    .WithAction(parentAction)
+                    .WithOrderType(orderMode)
+                    .WithQuantity(qty)
+                    .WithTif("DAY")
+                    .WithLimitPrice(limitPrice ?? 0)
+                    .WithTransmit(false)  // child order gönderilmeden parent tamamlanmaz
+                    .Build();
 
-                // --- Order gönder
-                var orderId = await _twsService.PlaceOrderAsync(contract, order);
+                var parentId = await _twsService.PlaceOrderAsync(contract, parentOrder);
 
-                await ShowAlert("Başarılı", $"Order gönderildi. OrderId: {orderId}");
+                // --- Stop Loss Child Order
+                string childAction = parentAction == "BUY" ? "SELL" : "BUY"; // parent aksi yönünde
+                var stopOrder = new OrderBuilder()
+                    .WithAction(childAction)
+                    .WithOrderType("STP")
+                    .WithQuantity(qty)
+                    .WithStopPrice(stopLossPrice)
+                    .WithTif("DAY")
+                    .WithOpenClose("C")
+                    .WithParentId(parentId)
+                    .WithTransmit(true)  // child gönderildiğinde parent de execute olur
+                    .Build();
+
+                var childStopId = await _twsService.PlaceOrderAsync(contract, stopOrder);
+
+                await ShowAlert("Başarılı", $"Emir gönderildi.\nParentId: {parentId}\nStopLossId: {childStopId}");
             }
             catch (Exception ex)
             {
                 await ShowAlert("Hata", ex.Message);
             }
         }
+    
+
+
+
 
 
         // Küçük yardımcı
