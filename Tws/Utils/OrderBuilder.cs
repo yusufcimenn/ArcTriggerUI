@@ -123,6 +123,12 @@ namespace ArcTriggerUI.Tws.Utils
             _order.AuxPrice = price;
             return this;
         }
+        public OrderBuilder WithOffset(double offset)
+        {
+            _order.AuxPrice = offset; // IB API’de offset AuxPrice ile temsil edilir
+            return this;
+        }
+
 
         public Order Build() => _order;
     }

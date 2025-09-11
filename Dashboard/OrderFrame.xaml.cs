@@ -1124,7 +1124,6 @@ namespace ArcTriggerUI.Dashboard
         {
             try
             {
-                // --- UI'dan verileri oku
                 var rightCode = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";
                 var orderMode = (LmtRadioButton?.IsChecked ?? false) ? "LMT" : "MKT";
 
@@ -1175,6 +1174,11 @@ namespace ArcTriggerUI.Dashboard
                     return;
                 }
 
+                // Offset oku (opsiyonel)
+                double? offset = null;
+                if (TryParseDouble(OffsetEntry?.Text, out var off) && off > 0)
+                    offset = off;
+
                 // --- OptionConId çöz
                 var optionConId = await _twsService.ResolveOptionConidAsync(
                     symbol: _selectedSymbol,
@@ -1185,7 +1189,6 @@ namespace ArcTriggerUI.Dashboard
                     strike: strike
                 );
 
-                // --- Contract oluştur
                 var contract = new Contract
                 {
                     ConId = optionConId,
@@ -1198,30 +1201,37 @@ namespace ArcTriggerUI.Dashboard
                     Right = rightCode
                 };
 
-                // --- Parent Order (BUY veya SELL, Call/Put mantığı)
-                string parentAction = rightCode == "C" ? "BUY" : "SELL";  // örnek: Call için BUY, Put için SELL
-                var parentOrder = new OrderBuilder()
+                // --- Parent Order (BUY/SELL)
+                string parentAction = rightCode == "C" ? "BUY" : "SELL";
+
+                var parentBuilder = new OrderBuilder()
                     .WithAction(parentAction)
                     .WithOrderType(orderMode)
                     .WithQuantity(qty)
                     .WithTif("DAY")
                     .WithLimitPrice(limitPrice ?? 0)
-                    .WithTransmit(false)  // child order gönderilmeden parent tamamlanmaz
-                    .Build();
+                    .WithTransmit(false);
+
+                if (offset.HasValue)
+                    parentBuilder.WithOffset(offset.Value);
+
+                var parentOrder = parentBuilder.Build();
 
                 var parentId = await _twsService.PlaceOrderAsync(contract, parentOrder);
-                orderId=parentId;
+                orderId = parentId;
+
                 // --- Stop Loss Child Order
-                string childAction = parentAction == "BUY" ? "SELL" : "BUY"; // parent aksi yönünde
+                string childAction = parentAction == "BUY" ? "SELL" : "BUY";
+                var newStopLoss = limitPrice - stopLossPrice;
                 var stopOrder = new OrderBuilder()
                     .WithAction(childAction)
                     .WithOrderType("STP")
                     .WithQuantity(qty)
-                    .WithStopPrice(stopLossPrice)
+                    .WithStopPrice(newStopLoss.Value)
                     .WithTif("DAY")
                     .WithOpenClose("C")
                     .WithParentId(parentId)
-                    .WithTransmit(true)  // child gönderildiğinde parent de execute olur
+                    .WithTransmit(true)
                     .Build();
 
                 var childStopId = await _twsService.PlaceOrderAsync(contract, stopOrder);
@@ -1233,7 +1243,8 @@ namespace ArcTriggerUI.Dashboard
                 await ShowAlert("Hata", ex.Message);
             }
         }
-    
+
+
 
 
 
