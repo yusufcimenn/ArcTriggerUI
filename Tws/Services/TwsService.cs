@@ -33,12 +33,11 @@ namespace ArcTriggerUI.Tws.Services
 
         public async Task ConnectAsync(string host, int port, int clientId, CancellationToken ct = default)
         {
-            if (isConnected == false)
+            if (!isConnected)
             {
-                _nextOrderIdTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                Connect(host, port, clientId);
-                using var _ = ct.Register(() => _nextOrderIdTcs.TrySetCanceled(ct));
-                _nextOrderId = await _nextOrderIdTcs.Task.ConfigureAwait(false); // nextValidId bekle
+                await base.ConnectAsync(host, port, clientId, ct).ConfigureAwait(false); // <-- base'i bekle
+                                                                                         // (opsiyonel) IB bazen nextValidId'ı geciktirir, garanti olsun:
+                Client.reqIds(-1);
                 isConnected = true;
             }
         }

@@ -254,7 +254,7 @@
                                            Padding="4,2"
                                            CornerRadius="6"
                                            
-                                           BackgroundColor="Transparent"
+                                           BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"
                                            HorizontalOptions="Start">
                                         <Label x:Name="MarketPriceLabel"
                                                Text="—"
