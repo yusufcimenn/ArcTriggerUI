@@ -23,14 +23,14 @@ namespace ArcTriggerUI.Tws.Services
         private readonly ConcurrentDictionary<int, (TaskCompletionSource<IReadOnlyList<OptionChainParams>> tcs, List<OptionChainParams> buf)> _optTcs = new();
 
         // ---- orderId/ACK yönetimi
-        private volatile int _nextOrderId;
+        private volatile int _nextOrderId = 1;
         private TaskCompletionSource<int>? _nextOrderIdTcs;
         private readonly ConcurrentDictionary<int, TaskCompletionSource<string>> _orderAck = new();
         private readonly ConcurrentDictionary<int, TaskCompletionSource<string>> _cancelAck = new();
 
         // ---- Bağlantı
         public bool isConnected = false;
-        
+
         public async Task ConnectAsync(string host, int port, int clientId, CancellationToken ct = default)
         {
             if (isConnected == false)
@@ -38,12 +38,12 @@ namespace ArcTriggerUI.Tws.Services
                 _nextOrderIdTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 Connect(host, port, clientId);
                 using var _ = ct.Register(() => _nextOrderIdTcs.TrySetCanceled(ct));
-                _nextOrderId=await _nextOrderIdTcs.Task.ConfigureAwait(false); // nextValidId bekle
+                _nextOrderId = await _nextOrderIdTcs.Task.ConfigureAwait(false); // nextValidId bekle
                 isConnected = true;
             }
         }
 
-        public void nextValidId(int orderId)
+        public void NextValidId(int orderId)
         {
             Console.WriteLine($"Next valid order id: {orderId}");
             _nextOrderId = orderId;
@@ -107,14 +107,37 @@ namespace ArcTriggerUI.Tws.Services
         // TRADE API (async)
         // =======================
 
+        private void SaveOrderId()
+        {
+            File.WriteAllText("orderid.txt", _nextOrderId.ToString());
+        }
+
+        private void LoadOrderId()
+        {
+            if (File.Exists("orderid.txt"))
+                _nextOrderId = int.Parse(File.ReadAllText("orderid.txt"));
+        }
+
+        private int GetNextOrderId()
+        {
+            return (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % int.MaxValue);
+        }
+
+
+
         public async Task<int> PlaceOrderAsync(Contract contract, Order order, CancellationToken ct = default)
         {
             var id = GetNextOrderId();
             var ack = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             _orderAck[id] = ack;
             using var _ = ct.Register(() => ack.TrySetCanceled(ct));
+            if (!order.Transmit)
+            {
+                Client.placeOrder(id, contract, order);
+                return id; // ack bekleme
+            }
             Client.placeOrder(id, contract, order);
-            await ack.Task.ConfigureAwait(false); // ilk status/openOrder bekle
+            await ack.Task; // ilk status/openOrder bekle
             return id;
         }
 
@@ -158,6 +181,7 @@ namespace ArcTriggerUI.Tws.Services
                 .WithQuantity(qty)
                 .WithTif(tif)
                 .WithOpenClose(close ? "C" : "O");
+
             if (!string.IsNullOrWhiteSpace(account)) ob.WithAccount(account);
 
             return PlaceOrderAsync(contract, ob.Build(), ct);
@@ -246,9 +270,9 @@ namespace ArcTriggerUI.Tws.Services
 
             var parentB = new OrderBuilder()
                 .WithAction("BUY")
-                .WithOrderType("STP LMT")
+                .WithOrderType("LMT")
                 .WithQuantity(quantity)
-                .WithStopPrice(aux_stop)
+                .WithAuxPrice(aux_stop)
                 .WithLimitPrice(limit_cap)
                 .WithTif(tif)
                 .WithOutsideRth(outsideRth)
@@ -259,9 +283,9 @@ namespace ArcTriggerUI.Tws.Services
 
             var childB = new OrderBuilder()
                 .WithAction("SELL")
-                .WithOrderType("STP LMT")
+                .WithOrderType("LMT")
                 .WithQuantity(quantity)
-                .WithStopPrice(stop_abs)
+                .WithAuxPrice(stop_abs)
                 .WithLimitPrice(stop_limit)
                 .WithTif(tif)
                 .WithOpenClose("C")
@@ -302,7 +326,7 @@ namespace ArcTriggerUI.Tws.Services
                 .WithAction("SELL")
                 .WithOrderType("STP LMT")
                 .WithQuantity(quantity)
-                .WithStopPrice(stop_abs)
+                .WithAuxPrice(stop_abs)
                 .WithLimitPrice(stop_limit)
                 .WithTif(tif)
                 .WithOpenClose("C")
@@ -315,54 +339,42 @@ namespace ArcTriggerUI.Tws.Services
             return (parentId, childId);
         }
 
-        public async Task<(int parentId, int childId)> ComplateOrder(
-            OptionOrderPreview orderPreview,
-            double stopLoss,
-            string tif = "DAY",
-            double stopLimitOffset = 0.05,
-            bool outsideRth = false,
-            string? account = null,
-            CancellationToken ct = default)
+        public async Task<(int parentId, int childId)> ComplateOrder(ComplateOrderDto orderDto, CancellationToken ct = default)
         {
-            if (orderPreview.OrderMode.Equals("MKT", StringComparison.OrdinalIgnoreCase))
+            if (orderDto.OrderMode.Equals("MKT", StringComparison.OrdinalIgnoreCase))
             {
                 return await PlaceMarketBuyWithProtectiveStopAsync(
-                    conId: orderPreview.OptionConId,
-                    triggerPrice: orderPreview.LimitPrice ?? 0, // triggerPrice için LimitPrice ya da 0
-                    stopLoss: stopLoss,
-                    quantity: orderPreview.Quantity,
-                    tif: tif,
-                    outsideRth: outsideRth,
-                    account: account,
-                    stopLimitOffset: stopLimitOffset,
+                    conId: orderDto.OptionConId,
+                    triggerPrice: orderDto.Trigger, // triggerPrice için LimitPrice ya da 0
+                    stopLoss: orderDto.StopLoss,
+                    quantity: orderDto.Quantity,
+                    tif: orderDto.Tif,
+                    outsideRth: orderDto.OutsideRth,
+                    stopLimitOffset: orderDto.StopLossOffset,
                     ct: ct
                     );
             }
-            else if (orderPreview.OrderMode.Equals("LMT", StringComparison.OrdinalIgnoreCase))
+            else if (orderDto.OrderMode.Equals("LMT", StringComparison.OrdinalIgnoreCase))
             {
                 // LMT için offset = (LimitPrice - triggerPrice)
-                if (orderPreview.LimitPrice is null)
+                if (orderDto.LimitPrice is null)
                     throw new ArgumentException("LimitPrice boş olamaz (LMT için).");
 
-                var triggerPrice = orderPreview.LimitPrice.Value;
-                var offset = 0.0; // ister LimitPrice’ı doğrudan kullan, offset 0 kabul et
-
                 return await PlaceBreakoutBuyStopLimitWithProtectiveStopAsync(
-                    conId: orderPreview.OptionConId,
-                    triggerPrice: triggerPrice,
-                    offset: offset,
-                    stopLoss: stopLoss,
-                    quantity: orderPreview.Quantity,
-                    tif: tif,
-                    outsideRth: outsideRth,
-                    account: account,
-                    stopLimitOffset: stopLimitOffset,
+                    conId: orderDto.OptionConId,
+                    triggerPrice: orderDto.LimitPrice.Value,
+                    offset: orderDto.Offset,
+                    stopLoss: orderDto.StopLoss,
+                    quantity: orderDto.Quantity,
+                    tif: orderDto.Tif,
+                    outsideRth: orderDto.OutsideRth,
+                    stopLimitOffset: orderDto.StopLossOffset,
                     ct: ct
                     );
             }
             else
             {
-                throw new NotSupportedException($"Desteklenmeyen OrderMode: {orderPreview.OrderMode}");
+                throw new NotSupportedException($"Desteklenmeyen OrderMode: {orderDto.OrderMode}");
             }
         }
 

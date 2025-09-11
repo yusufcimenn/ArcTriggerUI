@@ -7,7 +7,6 @@ namespace ArcTriggerUI.Tws.Services
     {
         public readonly EClientSocket Client;
         private readonly EReaderSignal _signal;
-        private int _nextOrderId;
         protected EReader? _reader;
         private Thread? _readerThread;
         private TaskCompletionSource<int>? _nextOrderIdTcs;
@@ -57,15 +56,6 @@ namespace ArcTriggerUI.Tws.Services
             if (Client.IsConnected())
                 Client.eDisconnect();
         }
-
-        public int GetNextOrderId()
-        {
-            if (_nextOrderId <= 0)
-                throw new InvalidOperationException("Henüz geçerli bir orderId alınmadı (nextValidId gelmedi).");
-
-            return _nextOrderId++;
-        }
-
 
         // --------------------
         // EWrapper Zorunluları

@@ -118,6 +118,12 @@ namespace ArcTriggerUI.Tws.Utils
             return this;
         }
 
+        public OrderBuilder WithAuxPrice(double price)
+        {
+            _order.AuxPrice = price;
+            return this;
+        }
+
         public Order Build() => _order;
     }
 }
