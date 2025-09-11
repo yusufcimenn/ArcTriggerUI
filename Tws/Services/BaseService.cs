@@ -74,6 +74,7 @@ namespace ArcTriggerUI.Tws.Services
         public virtual void nextValidId(int orderId)
         {
             Console.WriteLine($"Next valid order id: {orderId}");
+            _nextOrderId = orderId;                   // <-- KRİTİK: orderId'ı burada set et
             _nextOrderIdTcs?.TrySetResult(orderId);
         }
 

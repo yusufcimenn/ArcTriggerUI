@@ -22,8 +22,8 @@ namespace ArcTriggerUI.Tws.Services
         private readonly ConcurrentDictionary<int, (TaskCompletionSource<IReadOnlyList<OptionChainParams>> tcs, List<OptionChainParams> buf)> _optTcs = new();
 
         // ---- orderId/ACK yönetimi
-        private volatile int _nextOrderId;
-        private TaskCompletionSource<int>? _nextOrderIdTcs;
+        //private volatile int _nextOrderId;
+        //private TaskCompletionSource<int>? _nextOrderIdTcs;
         private readonly ConcurrentDictionary<int, TaskCompletionSource<string>> _orderAck = new();
         private readonly ConcurrentDictionary<int, TaskCompletionSource<string>> _cancelAck = new();
 
@@ -32,22 +32,21 @@ namespace ArcTriggerUI.Tws.Services
         
         public async Task ConnectAsync(string host, int port, int clientId, CancellationToken ct = default)
         {
-            if (isConnected == false)
+            if (!isConnected)
             {
-                _nextOrderIdTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                Connect(host, port, clientId);
-                using var _ = ct.Register(() => _nextOrderIdTcs.TrySetCanceled(ct));
-                _nextOrderId=await _nextOrderIdTcs.Task.ConfigureAwait(false); // nextValidId bekle
+                await base.ConnectAsync(host, port, clientId, ct).ConfigureAwait(false); // <-- base'i bekle
+                                                                                         // (opsiyonel) IB bazen nextValidId'ı geciktirir, garanti olsun:
+                Client.reqIds(-1);
                 isConnected = true;
             }
         }
 
-        public void nextValidId(int orderId)
-        {
-            Console.WriteLine($"Next valid order id: {orderId}");
-            _nextOrderId = orderId;
-            _nextOrderIdTcs?.TrySetResult(orderId);
-        }
+        //public void nextValidId(int orderId)
+        //{
+        //    Console.WriteLine($"Next valid order id: {orderId}");
+        //    _nextOrderId = orderId;
+        //    _nextOrderIdTcs?.TrySetResult(orderId);
+        //}
 
         // =======================
         // CONTRACT API (async)

@@ -1163,7 +1163,7 @@ namespace ArcTriggerUI.Dashboard
                 {
                     ConId = optionConId,
                     Symbol = _selectedSymbol,
-                    SecType = _selectedSectype,
+                    SecType = "OPT",
                     Exchange = "SMART",
                     Currency = "USD",
                     LastTradeDateOrContractMonth = expiry,
