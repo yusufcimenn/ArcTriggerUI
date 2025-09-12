@@ -714,8 +714,11 @@ namespace ArcTriggerUI.Dashboard
                         await ShowAlert("Uyarı", "Lütfen bir vade (expiration) seçin.");
                         return;
                     }
-                    if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(),
-                                         NumberStyles.Any, CultureInfo.InvariantCulture, out var strike))
+                    if (!double.TryParse(
+          StrikesPicker?.SelectedItem?.ToString()?.Replace(',', '.'), // önce virgül -> nokta
+          NumberStyles.Any,
+          CultureInfo.InvariantCulture,
+          out var strike))
                     {
                         await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
                         return;
@@ -1145,7 +1148,11 @@ namespace ArcTriggerUI.Dashboard
                     return;
                 }
 
-                if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var strike))
+                if (!double.TryParse(
+         StrikesPicker?.SelectedItem?.ToString()?.Replace(',', '.'), // önce virgül -> nokta
+         NumberStyles.Any,
+         CultureInfo.InvariantCulture,
+         out var strike))
                 {
                     await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
                     return;
