@@ -688,19 +688,19 @@ namespace ArcTriggerUI.Dashboard
                 // --- Basit doğrulamalar
                 if (string.IsNullOrWhiteSpace(_selectedSymbol))
                 {
-                    await ShowAlert("Uyarı", "Lütfen bir sembol seçin.");
+                    await ShowAlert("Warning", "Please select a symbol.");
                     return;
                 }
 
                 if (_selectedConId is null || string.IsNullOrWhiteSpace(_selectedSectype))
                 {
-                    await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin.");
+                    await ShowAlert("Warning", "Please select a symbol and load SecType/Option Params first.");
                     return;
                 }
 
                 if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
                 {
-                    await ShowAlert("Uyarı", "Miktar (adet) geçersiz.");
+                    await ShowAlert("Warning", "Quantity is invalid.");
                     return;
                 }
 
@@ -712,14 +712,14 @@ namespace ArcTriggerUI.Dashboard
 
                     if (MaturityDateLabel?.SelectedItem is not string expiry || string.IsNullOrWhiteSpace(expiry))
                     {
-                        await ShowAlert("Uyarı", "Lütfen bir vade (expiration) seçin.");
+                        await ShowAlert("Warning", "Please select an expiration date.");
                         return;
                     }
 
                     if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(),
                                          NumberStyles.Any, CultureInfo.InvariantCulture, out var strike))
                     {
-                        await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
+                        await ShowAlert("Warning", "Please select a strike.");
                         return;
                     }
 
@@ -760,7 +760,7 @@ namespace ArcTriggerUI.Dashboard
                 var position = await _twsService.GetPositionAsync(contract.ConId);
                 if (position == null || position.Quantity == 0)
                 {
-                    await ShowAlert("Hata", "Pozisyon bulunamadı.");
+                    await ShowAlert("Error", "No position found.");
                     return;
                 }
 
@@ -783,11 +783,11 @@ namespace ArcTriggerUI.Dashboard
                 // StopOrderId güncelle
                 _twsService.UpdateStopOrderId(contract.ConId, stopOrderId);
 
-                await ShowAlert("Başarılı", $"Breakeven stop-loss emri gönderildi. StopOrderId: {stopOrderId}");
+                await ShowAlert("Success", $"Breakeven stop-loss order submitted. StopOrderId: {stopOrderId}");
             }
             catch (Exception ex)
             {
-                await ShowAlert("Hata", ex.Message);
+                await ShowAlert("Error", ex.Message);
             }
             finally
             {
