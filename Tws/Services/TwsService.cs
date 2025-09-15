@@ -316,6 +316,85 @@ namespace ArcTriggerUI.Tws.Services
 
             return (parentId, childId);
         }
+        public class TwsPosition
+        {
+            public Contract Contract { get; set; } = null!;
+            public int Quantity { get; set; }
+            public double AveragePrice { get; set; }
+            public int? StopOrderId { get; set; } // Stop emri ID'si takibi
+        }
+
+        // Event tanımı
+        public event Action<TwsPosition>? OnPositionReceived;
+
+        // TaskCompletionSource yönetimi
+        private readonly ConcurrentDictionary<int, TaskCompletionSource<TwsPosition?>> _positionRequests = new();
+        private readonly ConcurrentDictionary<int, TwsPosition> _positions = new(); // conId -> pozisyon
+
+        // Pozisyon talebi
+        public Task<TwsPosition?> GetPositionAsync(int conId, int timeoutMs = 3000)
+        {
+            if (_positions.TryGetValue(conId, out var existing))
+                return Task.FromResult<TwsPosition?>(existing);
+
+            var tcs = new TaskCompletionSource<TwsPosition?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            int reqId = NextReqId();
+            _positionRequests[reqId] = tcs;
+
+            // Timeout
+            var cts = new CancellationTokenSource(timeoutMs);
+            cts.Token.Register(() =>
+            {
+                _positionRequests.TryRemove(reqId, out _);
+                tcs.TrySetResult(null);
+            });
+
+            // TWS'e pozisyon isteği gönder
+            Client.reqPositions();
+
+            return tcs.Task;
+        }
+
+        // TWS'den gelen pozisyonu handle et
+        public void HandleIncomingPosition(string account, Contract contract, double pos, double avgCost)
+        {
+            var twsPos = new TwsPosition
+            {
+                Contract = contract,
+                Quantity = (int)pos,
+                AveragePrice = avgCost
+            };
+
+            _positions[contract.ConId] = twsPos;
+
+            OnPositionReceived?.Invoke(twsPos);
+
+            // İlgili TaskCompletionSource varsa tamamla
+            foreach (var kvp in _positionRequests)
+            {
+                if (kvp.Value.Task.IsCompleted) continue;
+                kvp.Value.TrySetResult(twsPos);
+                _positionRequests.TryRemove(kvp.Key, out _);
+                break;
+            }
+        }
+
+        // StopOrderId takibi ekle / güncelle
+        public void UpdateStopOrderId(int conId, int stopOrderId)
+        {
+            if (_positions.TryGetValue(conId, out var pos))
+                pos.StopOrderId = stopOrderId;
+        }
+
+        // Stop emrini iptal et ve pozisyonu güncelle
+        public async Task CancelStopAsync(int conId, CancellationToken ct = default)
+        {
+            if (_positions.TryGetValue(conId, out var pos) && pos.StopOrderId.HasValue)
+            {
+                await CancelOrderAsync(pos.StopOrderId.Value, ct);
+                pos.StopOrderId = null;
+            }
+        }
 
         public async Task<(int parentId, int childId)> ComplateOrder(ComplateOrderDto orderDto, CancellationToken ct = default)
         {
@@ -618,4 +697,6 @@ namespace ArcTriggerUI.Tws.Services
             await ack.Task.ConfigureAwait(false);
         }
     }
+
+
 }

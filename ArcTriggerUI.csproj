@@ -64,6 +64,19 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Remove="Pages\**" />
+	  <Compile Remove="Views\**" />
+	  <EmbeddedResource Remove="Pages\**" />
+	  <EmbeddedResource Remove="Views\**" />
+	  <MauiCss Remove="Pages\**" />
+	  <MauiCss Remove="Views\**" />
+	  <MauiXaml Remove="Pages\**" />
+	  <MauiXaml Remove="Views\**" />
+	  <None Remove="Pages\**" />
+	  <None Remove="Views\**" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Maui" Version="12.1.0" />
 		<PackageReference Include="IBApi" Version="1.0.0-preview-975" />
 		<PackageReference Include="Microsoft.Extensions.Http" Version="9.0.8" />
@@ -78,8 +91,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="Pages\" />
-	  <Folder Include="Views\" />
+	  <PRIResource Remove="Pages\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PRIResource Remove="Views\**" />
 	</ItemGroup>
 
 </Project>

@@ -682,49 +682,47 @@ namespace ArcTriggerUI.Dashboard
         {
             if (_isBreakevenBusy) return;
             _isBreakevenBusy = true;
+
             try
             {
                 // --- Basit doğrulamalar
                 if (string.IsNullOrWhiteSpace(_selectedSymbol))
                 {
-                    await ShowAlert("Warning", "Please select a symbol.");
+                    await ShowAlert("Uyarı", "Lütfen bir sembol seçin.");
                     return;
                 }
+
                 if (_selectedConId is null || string.IsNullOrWhiteSpace(_selectedSectype))
                 {
-                    await ShowAlert("Warning", "Please select the symbol and load SecType/Option Params first.");
+                    await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin.");
                     return;
                 }
+
                 if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
                 {
-                    await ShowAlert("Warning", "Invalid quantity.");
+                    await ShowAlert("Uyarı", "Miktar (adet) geçersiz.");
                     return;
                 }
 
-                // --- Contract oluştur (OPT ise option conid’yi çöz)
+                // --- Contract oluştur
                 Contract contract;
-
-                if (string.Equals(_selectedSectype, "OPT", StringComparison.OrdinalIgnoreCase))
+                if (_selectedSectype!.Equals("OPT", StringComparison.OrdinalIgnoreCase))
                 {
-                    // UI’den Right/Expiry/Strike’ı çek
                     var rightCode = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";
 
                     if (MaturityDateLabel?.SelectedItem is not string expiry || string.IsNullOrWhiteSpace(expiry))
                     {
-                        await ShowAlert("Warning", "Please select an expiration.");
-                        return;
-                    }
-                    if (!double.TryParse(
-          StrikesPicker?.SelectedItem?.ToString()?.Replace(',', '.'), // önce virgül -> nokta
-          NumberStyles.Any,
-          CultureInfo.InvariantCulture,
-          out var strike))
-                    {
-                        await ShowAlert("Warning", "Please select a strike.");
+                        await ShowAlert("Uyarı", "Lütfen bir vade (expiration) seçin.");
                         return;
                     }
 
-                    // OptionConId’yi çöz
+                    if (!double.TryParse(StrikesPicker?.SelectedItem?.ToString(),
+                                         NumberStyles.Any, CultureInfo.InvariantCulture, out var strike))
+                    {
+                        await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
+                        return;
+                    }
+
                     var optionConId = await _twsService.ResolveOptionConidAsync(
                         symbol: _selectedSymbol!,
                         secType: "OPT",
@@ -748,36 +746,55 @@ namespace ArcTriggerUI.Dashboard
                 }
                 else
                 {
-                    // STK / FUT vs. için doğrudan seçili conId
                     contract = new Contract
                     {
                         ConId = _selectedConId.Value,
                         Symbol = _selectedSymbol!,
-                        SecType = _selectedSectype!,
+                        SecType = _selectedSectype,
                         Exchange = "SMART",
                         Currency = "USD"
                     };
                 }
 
-                // --- Breakeven: SELL MKT (mevcut serviste hazır)
-                var orderId = await _twsService.PlaceBreakevenAsync(contract, qty, tif: GetSelectedTif());
-                _tpTrackers[orderId] = (OriginalSellQty: qty, LastReportedFilled: 0);
+                // --- Mevcut pozisyonu al
+                var position = await _twsService.GetPositionAsync(contract.ConId);
+                if (position == null || position.Quantity == 0)
+                {
+                    await ShowAlert("Hata", "Pozisyon bulunamadı.");
+                    return;
+                }
 
-                // 3) event'e (idempotent) abone ol
-                _twsService.OnOrderStatusUpdated -= HandleOrderStatusForTp;
-                _twsService.OnOrderStatusUpdated += HandleOrderStatusForTp;
+                double breakevenPrice = position.AveragePrice; // Breakeven = ortalama fiyat
+                int stopQty = Math.Abs(position.Quantity);
 
-                await ShowAlert("Sent", $"Breakeven order sent. OrderId: {orderId}");
+                // --- Önceki stop emrini iptal et
+                if (position.StopOrderId.HasValue)
+                {
+                    await _twsService.CancelStopAsync(contract.ConId);
+                }
+
+                // --- Yeni stop-loss emri gönder (breakeven seviyesinde)
+                var stopOrderId = await _twsService.PlaceStopMarketAsync(
+                    contract,
+                    stopQty,
+                    breakevenPrice
+                );
+
+                // StopOrderId güncelle
+                _twsService.UpdateStopOrderId(contract.ConId, stopOrderId);
+
+                await ShowAlert("Başarılı", $"Breakeven stop-loss emri gönderildi. StopOrderId: {stopOrderId}");
             }
             catch (Exception ex)
             {
-                await ShowAlert("Error", ex.Message);
+                await ShowAlert("Hata", ex.Message);
             }
             finally
             {
                 _isBreakevenBusy = false;
             }
         }
+
         #endregion
         #endregion
 
