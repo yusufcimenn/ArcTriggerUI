@@ -783,7 +783,7 @@ namespace ArcTriggerUI.Dashboard
                 // StopOrderId güncelle
                 _twsService.UpdateStopOrderId(contract.ConId, stopOrderId);
 
-                await ShowAlert("Success", $"Breakeven stop-loss order submitted. StopOrderId: {stopOrderId}");
+                await ShowAlert("Success", $"Breakeven is stop-loss order submitted. StopOrderId: {stopOrderId}");
             }
             catch (Exception ex)
             {
