@@ -531,6 +531,11 @@
                                             </Button.GestureRecognizers>
                                         </Button>
                                         <Button Text="+" Style="{StaticResource ChipButton}" Clicked="OnHotAddClicked" CommandParameter="prof"/>
+                                        <Button x:Name="BtnTakeProfit"               
+                                            Text="Take"
+                                                BackgroundColor="#0064E0"
+                                            Style="{StaticResource ChipButton}"
+                                            Clicked="OnTakeProfitClicked"/>
                                     </HorizontalStackLayout>
                                 </Grid>
 

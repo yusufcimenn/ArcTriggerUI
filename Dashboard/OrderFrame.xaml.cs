@@ -665,11 +665,11 @@ namespace ArcTriggerUI.Dashboard
                 // Order iptali
                  await _twsService.CancelOrderAsync(orderId);
 
-                 ShowAlert("Başarılı", $"Order {orderId} iptal edildi.");
+                 ShowAlert("Success", $"Order {orderId} cancelled.");
             }
             catch (Exception ex)
             {
-                await ShowAlert("Hata", $"Order iptal edilemedi: {ex.Message}");
+                await ShowAlert("Error", $"Failed to cancel order: {ex.Message}");
             }
         }
         #endregion
@@ -687,17 +687,17 @@ namespace ArcTriggerUI.Dashboard
                 // --- Basit doğrulamalar
                 if (string.IsNullOrWhiteSpace(_selectedSymbol))
                 {
-                    await ShowAlert("Uyarı", "Lütfen bir sembol seçin.");
+                    await ShowAlert("Warning", "Please select a symbol.");
                     return;
                 }
                 if (_selectedConId is null || string.IsNullOrWhiteSpace(_selectedSectype))
                 {
-                    await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin.");
+                    await ShowAlert("Warning", "Please select the symbol and load SecType/Option Params first.");
                     return;
                 }
                 if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
                 {
-                    await ShowAlert("Uyarı", "Miktar (adet) geçersiz.");
+                    await ShowAlert("Warning", "Invalid quantity.");
                     return;
                 }
 
@@ -711,7 +711,7 @@ namespace ArcTriggerUI.Dashboard
 
                     if (MaturityDateLabel?.SelectedItem is not string expiry || string.IsNullOrWhiteSpace(expiry))
                     {
-                        await ShowAlert("Uyarı", "Lütfen bir vade (expiration) seçin.");
+                        await ShowAlert("Warning", "Please select an expiration.");
                         return;
                     }
                     if (!double.TryParse(
@@ -720,7 +720,7 @@ namespace ArcTriggerUI.Dashboard
           CultureInfo.InvariantCulture,
           out var strike))
                     {
-                        await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
+                        await ShowAlert("Warning", "Please select a strike.");
                         return;
                     }
 
@@ -760,13 +760,18 @@ namespace ArcTriggerUI.Dashboard
                 }
 
                 // --- Breakeven: SELL MKT (mevcut serviste hazır)
-                var orderId = await _twsService.PlaceBreakevenAsync(contract, qty);
+                var orderId = await _twsService.PlaceBreakevenAsync(contract, qty, tif: GetSelectedTif());
+                _tpTrackers[orderId] = (OriginalSellQty: qty, LastReportedFilled: 0);
 
-                await ShowAlert("Gönderildi", $"Breakeven emri gönderildi. OrderId: {orderId}");
+                // 3) event'e (idempotent) abone ol
+                _twsService.OnOrderStatusUpdated -= HandleOrderStatusForTp;
+                _twsService.OnOrderStatusUpdated += HandleOrderStatusForTp;
+
+                await ShowAlert("Sent", $"Breakeven order sent. OrderId: {orderId}");
             }
             catch (Exception ex)
             {
-                await ShowAlert("Hata", ex.Message);
+                await ShowAlert("Error", ex.Message);
             }
             finally
             {
@@ -843,7 +848,7 @@ namespace ArcTriggerUI.Dashboard
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Hata: " + ex.Message);
+                Console.WriteLine("Error: " + ex.Message);
                 SymbolSuggestions.IsVisible = false;
             }
         }
@@ -882,6 +887,7 @@ namespace ArcTriggerUI.Dashboard
 
                    _currentTickerId= _twsService.RequestMarketData(_selectedConId.Value,marketDataType:3);
                     // Tick geldiğinde LastPrice’i değişkene kaydet
+                    _twsService.OnMarketData -= OnMarketDataTick;
                     _twsService.OnMarketData += OnMarketDataTick;
                 }
             }
@@ -897,7 +903,7 @@ namespace ArcTriggerUI.Dashboard
         {
             if (_selectedConId == null || string.IsNullOrEmpty(_selectedSymbol))
             {
-                await ShowErrorAsync("Hata", "Lütfen önce bir symbol seçin.");
+                await ShowAlert("Warning", "Please select a symbol.");
                 return;
             }
 
@@ -949,7 +955,7 @@ namespace ArcTriggerUI.Dashboard
             }
             catch (Exception ex)
             {
-                await ShowErrorAsync("Hata", ex.Message);
+                await ShowErrorAsync("Error", ex.Message);
             }
         }
 
@@ -996,7 +1002,7 @@ namespace ArcTriggerUI.Dashboard
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Hata", ex.Message, "OK");
+                Console.WriteLine($"Error: {ex.Message}");
             }
         }
 
@@ -1122,29 +1128,41 @@ namespace ArcTriggerUI.Dashboard
     double? LimitPrice,
     int OptionConId
 );
+        // FIX: OrderFrame fields
+        private Contract? _lastContract;
+        private int? _lastStopOrderId;
+        private double? _lastStopAux;      // stop trigger
+        private double? _lastStopLimit;    // for STP LMT, else null
+        private string _lastStopTif = "DAY";
+        private bool _lastStopOutsideRth = false;
+        private string _lastStopAction = "SELL";
+        private int _lastParentId;       // Parent order id
+        private string _lastOpenClose;   // "C" (close) veya "O" (open)
+        private string _lastAccount;     // Hesap kodu (DU12345 vs.)
 
         private async void OnPostOrderClicked(object sender, EventArgs e)
         {
             try
             {
+                var tif = GetSelectedTif();
                 var rightCode = (PutRadioButton?.IsChecked ?? false) ? "P" : "C";
                 var orderMode = (LmtRadioButton?.IsChecked ?? false) ? "LMT" : "MKT";
 
                 if (string.IsNullOrWhiteSpace(_selectedSymbol))
                 {
-                    await ShowAlert("Uyarı", "Lütfen bir sembol seçin.");
+                    await ShowAlert("Warning", "Please select a symbol.");
                     return;
                 }
 
                 if (_selectedConId is null || string.IsNullOrWhiteSpace(_selectedSectype))
                 {
-                    await ShowAlert("Uyarı", "Önce sembolü seçip SecType/Option Params yükleyin.");
+                    await ShowAlert("Warning", "Please select the symbol and load SecType/Option Params first.");
                     return;
                 }
 
                 if (MaturityDateLabel?.SelectedItem is not string expiry || string.IsNullOrWhiteSpace(expiry))
                 {
-                    await ShowAlert("Uyarı", "Lütfen bir vade seçin.");
+                    await ShowAlert("Warning", "Please select an expiration.");
                     return;
                 }
 
@@ -1154,13 +1172,13 @@ namespace ArcTriggerUI.Dashboard
          CultureInfo.InvariantCulture,
          out var strike))
                 {
-                    await ShowAlert("Uyarı", "Lütfen bir strike seçin.");
+                    await ShowAlert("Warning", "Please select a strike.");
                     return;
                 }
 
                 if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var qty) || qty <= 0)
                 {
-                    await ShowAlert("Uyarı", "Miktar geçersiz.");
+                    await ShowAlert("Warning", "Please select a strike.");
                     return;
                 }
 
@@ -1169,7 +1187,7 @@ namespace ArcTriggerUI.Dashboard
                 {
                     if (!TryParseDouble(TriggerEntry?.Text, out var lim) || lim <= 0)
                     {
-                        await ShowAlert("Uyarı", "Limit emir için fiyat gerekli.");
+                        await ShowAlert("Warning", "A price is required for limit order.");
                         return;
                     }
                     limitPrice = lim;
@@ -1177,7 +1195,7 @@ namespace ArcTriggerUI.Dashboard
 
                 if (!TryParseDouble(StopLossEntry?.Text, out var stopLossPrice) || stopLossPrice <= 0)
                 {
-                    await ShowAlert("Uyarı", "Stop loss fiyatı geçersiz.");
+                    await ShowAlert("Warning", "Invalid stop loss price.");
                     return;
                 }
 
@@ -1215,7 +1233,7 @@ namespace ArcTriggerUI.Dashboard
                     .WithAction(parentAction)
                     .WithOrderType(orderMode)
                     .WithQuantity(qty)
-                    .WithTif("DAY")
+                    .WithTif(tif)
                     .WithLimitPrice(limitPrice ?? 0)
                     .WithTransmit(false);
 
@@ -1229,41 +1247,66 @@ namespace ArcTriggerUI.Dashboard
 
                 // --- Stop Loss Child Order
                 string childAction = parentAction == "BUY" ? "SELL" : "BUY";
-                var newStopLoss = limitPrice - stopLossPrice;
+                double basePriceForStop;
+                if (orderMode == "LMT")
+                {
+                    basePriceForStop = limitPrice!.Value; // zaten >0 doğrulandı
+                }
+                else
+                {
+                    // MKT ise tetik için TriggerEntry'den oku
+                    if (!TryParseDouble(TriggerEntry?.Text, out var trg) || trg <= 0)
+                    {
+                        await ShowAlert("Warning", "Trigger price required for Market order.");
+                        return;
+                    }
+                    basePriceForStop = trg;
+                }
+
+                
+                double newStopLoss = parentAction == "BUY"
+    ? basePriceForStop - stopLossPrice
+    : basePriceForStop + stopLossPrice;
                 var stopOrder = new OrderBuilder()
                     .WithAction(childAction)
                     .WithOrderType("STP")
                     .WithQuantity(qty)
-                    .WithStopPrice(newStopLoss.Value)
-                    .WithTif("DAY")
+                    .WithStopPrice(newStopLoss)
+                    .WithTif(tif)
                     .WithOpenClose("C")
                     .WithParentId(parentId)
                     .WithTransmit(true)
                     .Build();
 
                 var childStopId = await _twsService.PlaceOrderAsync(contract, stopOrder);
+                _lastContract = contract;
+                _lastStopOrderId = childStopId;
+                _lastStopAux = stopOrder.AuxPrice;    // read from the builder/order you created
+                _lastStopLimit = (stopOrder.OrderType?.Equals("STP LMT", StringComparison.OrdinalIgnoreCase) == true
+                  && stopOrder.LmtPrice > 0)
+                 ? stopOrder.LmtPrice
+                 : (double?)null;    // null/0 if STP
+                _lastStopTif = tif;
+                _lastStopOutsideRth = false;
+                _lastStopAction = childAction;
 
-                await ShowAlert("Başarılı", $"Emir gönderildi.\nParentId: {parentId}\nStopLossId: {childStopId}");
+                _lastParentId = parentId;
+                _lastOpenClose = stopOrder.OpenClose ?? "C";
+                _lastAccount = stopOrder.Account;
+
+                await ShowAlert("Success", $"Order submitted.\nParentId: {parentId}\nStopLossId: {childStopId}");
             }
             catch (Exception ex)
             {
-                await ShowAlert("Hata", ex.Message);
+                await ShowAlert("Error", ex.Message);
             }
         }
-
-
-
-
-
-
-
+     
         // Küçük yardımcı
         private static bool TryParseDouble(string? s, out double v) =>
             double.TryParse((s ?? string.Empty).Trim().Replace(',', '.'), NumberStyles.Any, CultureInfo.InvariantCulture, out v);
 
 
-
-       
         private double _currentLastPrice;
 
         // Symbol seçildiğinde çağrılır
@@ -1312,8 +1355,180 @@ namespace ArcTriggerUI.Dashboard
                 _twsService.CancelMarketData(_currentTickerId.Value);
 
             _twsService.OnMarketData -= OnMarketDataTick;
+            _twsService.OnOrderStatusUpdated -= HandleOrderStatusForTp;
         }
 
+        // OrderFrame fields (diğer alanların yanına)
+        private readonly Dictionary<int, (int OriginalSellQty, int LastReportedFilled)> _tpTrackers = new();
+        private int _currentPositionQty => int.TryParse(lblQuantity?.Text, out var q) ? q : 0;
+        private void SetCurrentPositionQty(int q) => lblQuantity.Text = Math.Max(q, 0).ToString(CultureInfo.InvariantCulture);
+
+
+        private async void OnTakeProfitClicked(object sender, EventArgs e) // fix
+        {
+            try
+            {
+                var tif = GetSelectedTif();
+                if (!int.TryParse(lblQuantity?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var total) || total <= 0)
+                {
+                    await ShowAlert("Warning", "No valid total quantity found.");
+                    return;
+                }
+
+                if (!TryParseDouble(ProfitEntry?.Text, out var pct) || pct <= 0)
+                {
+                    await ShowAlert("Warning", "Invalid take-profit percentage.");
+                    return;
+                }
+
+                // Kullanıcı 10 yazdıysa %10 kabul etmek için
+                if (pct > 1) pct = pct / 100.0;
+
+                var qtyToSell = (int)Math.Round(total * pct, MidpointRounding.AwayFromZero);
+                qtyToSell = Math.Max(1, Math.Min(qtyToSell, total)); // en az 1, en fazla total
+
+                if (_lastContract == null)
+                {
+                    await ShowAlert("Warning", "No contract found to update (place an order first).");
+                    return;
+                }
+
+                // 1) Kâr alma satışı (MKT)
+                var takeProfitOrder = new OrderBuilder()
+                    .WithAction(_lastStopAction)
+                    .WithOrderType("MKT")
+                    .WithQuantity(qtyToSell)
+                    .WithTif(tif)
+                    .WithOpenClose("C")
+                    .Build();
+
+                var tpId = await _twsService.PlaceOrderAsync(_lastContract, takeProfitOrder);
+
+                _tpTrackers[tpId] = (OriginalSellQty: qtyToSell, LastReportedFilled: 0);
+                // Event’e tek sefer abone ol (zaten aboneysen tekrar etme)
+                _twsService.OnOrderStatusUpdated -= HandleOrderStatusForTp; // idempotent
+                _twsService.OnOrderStatusUpdated += HandleOrderStatusForTp;
+
+                // 2) Kalanı hesapla
+                //var remaining = total - qtyToSell;
+
+                //// 3) Stop’u kalan için güncelle veya iptal et
+                //if (_lastStopOrderId.HasValue)
+                //{
+                //    if (remaining <= 0)
+                //    {
+                //        await _twsService.CancelOrderAsync(_lastStopOrderId.Value);
+                //        _lastStopOrderId = null; // artık stop yok
+                //        lblQuantity.Text = "0";
+                //        await ShowAlert("Bilgi", $"Kâr alma tamamlandı, stop iptal edildi.");
+                //    }
+                //    else
+                //    {
+                //        await _twsService.UpdateStopOrderQtyAsync(
+                //            contract: _lastContract,
+                //            stopOrderId: _lastStopOrderId.Value,
+                //            newQty: remaining,
+                //            tif: _lastStopTif,
+                //            outsideRth: _lastStopOutsideRth,
+                //            action: _lastStopAction,
+                //            isStopLimit: _lastStopLimit.HasValue,
+                //            auxStop: _lastStopAux,
+                //            limitAfterStop: _lastStopLimit
+                //        );
+
+                //        lblQuantity.Text = remaining.ToString(CultureInfo.InvariantCulture);
+                //        await ShowAlert("Bilgi", $"Kâr alma tamam: {qtyToSell} satıldı, stop {remaining} adede güncellendi.");
+                //    }
+                //}
+                //else
+
+                //// Stop hiç yoksa sadece kalan adedi UI’da güncelle
+                //lblQuantity.Text = remaining.ToString(CultureInfo.InvariantCulture);
+                //await ShowAlert("Bilgi", $"Kâr alma tamam: {qtyToSell} satıldı. Etkin stop emri bulunamadı.");
+                await ShowAlert("Success", $"Profit submitted.\norderId: {tpId}");
+            }
+            catch (Exception ex)
+            {
+                await ShowAlert("Error", ex.Message);
+            }
+        }
+        private async void HandleOrderStatusForTp(TwsService.OrderUpdate upd)
+        {
+            try
+            {
+                // Yalnızca bizim TP emirlerini takip et
+                if (!_tpTrackers.TryGetValue(upd.OrderId, out var track))
+                    return;
+
+                // IB filled: emre ait toplam gerçekleşen miktar (kümülatif)
+                var cumulativeFilled = (int)Math.Round(upd.Filled, MidpointRounding.AwayFromZero);
+                var deltaFilled = Math.Max(0, cumulativeFilled - track.LastReportedFilled);
+                if (deltaFilled == 0) return; // yeni fill yok
+
+                // UI miktarı güncelle
+                var before = _currentPositionQty;
+                var after = Math.Max(0, before - deltaFilled);
+                MainThread.BeginInvokeOnMainThread(() => SetCurrentPositionQty(after));
+
+                // Stop’u güncelle (varsa)
+                if (_lastStopOrderId.HasValue && _lastContract != null)
+                {
+                    if (after <= 0)
+                    {
+                        await _twsService.CancelOrderAsync(_lastStopOrderId.Value);
+                        _lastStopOrderId = null;
+                    }
+                    else
+                    {
+                        await _twsService.UpdateStopOrderQtyAsync(
+    contract: _lastContract,
+    stopOrderId: _lastStopOrderId.Value,
+    newQty: after,
+    tif: GetSelectedTif(),
+    outsideRth: _lastStopOutsideRth,
+    action: _lastStopAction,
+    isStopLimit: _lastStopLimit.HasValue,
+    auxStop: _lastStopAux,
+    limitAfterStop: _lastStopLimit,
+    parentId: _lastParentId,       // YENİ
+    openClose: _lastOpenClose,     // YENİ ("C")
+    account: _lastAccount          // YENİ (varsa)
+);
+
+                    }
+                }
+
+                // Tracker’ı ilerlet
+                _tpTrackers[upd.OrderId] = (track.OriginalSellQty, cumulativeFilled);
+
+                // Emir tamamen bittiyse temizle
+                var isDone =
+                    upd.Status.Equals("Filled", StringComparison.OrdinalIgnoreCase) ||
+                    upd.Status.Equals("ApiCancelled", StringComparison.OrdinalIgnoreCase) ||
+                    upd.Remaining <= 0;
+
+                if (isDone)
+                {
+                    _tpTrackers.Remove(upd.OrderId);
+                    // Başka TP yoksa event’i bırak
+                    if (_tpTrackers.Count == 0)
+                        _twsService.OnOrderStatusUpdated -= HandleOrderStatusForTp;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Sessiz log; UI'ı kilitlemeyelim
+                Console.WriteLine("TP status handle error: " + ex.Message);
+            }
+        }
+
+
+        private string GetSelectedTif()
+        {
+            var tif = (ExpPicker?.SelectedItem as string)?.Trim().ToUpperInvariant();
+            var allowed = new HashSet<string> { "DAY", "GTC", "IOC", "OPG", "PAX" };
+            return !string.IsNullOrWhiteSpace(tif) && allowed.Contains(tif) ? tif : "DAY";
+        }
 
     }
 }

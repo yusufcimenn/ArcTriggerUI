@@ -23,8 +23,6 @@ namespace ArcTriggerUI.Tws.Services
         private readonly ConcurrentDictionary<int, (TaskCompletionSource<IReadOnlyList<OptionChainParams>> tcs, List<OptionChainParams> buf)> _optTcs = new();
 
         // ---- orderId/ACK yönetimi
-        private volatile int _nextOrderId = 1;
-        private TaskCompletionSource<int>? _nextOrderIdTcs;
         private readonly ConcurrentDictionary<int, TaskCompletionSource<string>> _orderAck = new();
         private readonly ConcurrentDictionary<int, TaskCompletionSource<string>> _cancelAck = new();
 
@@ -40,13 +38,6 @@ namespace ArcTriggerUI.Tws.Services
                 Client.reqIds(-1);
                 isConnected = true;
             }
-        }
-
-        public void NextValidId(int orderId)
-        {
-            Console.WriteLine($"Next valid order id: {orderId}");
-            _nextOrderId = orderId;
-            _nextOrderIdTcs?.TrySetResult(orderId);
         }
 
         // =======================
@@ -94,28 +85,16 @@ namespace ArcTriggerUI.Tws.Services
                 .WithRight(right)
                 .WithExpiry(yyyymmdd)
                 .WithStrike(strike)
-                .WithSecType(secType)
                 .Build();
 
             var list = await GetContractDetailsAsync(c, ct).ConfigureAwait(false);
-            var hit = list.FirstOrDefault() ?? throw new InvalidOperationException("Tekilleşmedi: contract bulunamadı.");
+            var hit = list.FirstOrDefault() ?? throw new InvalidOperationException("Not unique: contract not found.");
             return hit.ConId;
         }
 
         // =======================
         // TRADE API (async)
         // =======================
-
-        private void SaveOrderId()
-        {
-            File.WriteAllText("orderid.txt", _nextOrderId.ToString());
-        }
-
-        private void LoadOrderId()
-        {
-            if (File.Exists("orderid.txt"))
-                _nextOrderId = int.Parse(File.ReadAllText("orderid.txt"));
-        }
 
         private int GetNextOrderId()
         {
@@ -126,7 +105,7 @@ namespace ArcTriggerUI.Tws.Services
 
         public async Task<int> PlaceOrderAsync(Contract contract, Order order, CancellationToken ct = default)
         {
-            var id = GetNextOrderId();
+            var id = NextOrderId();
             var ack = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             _orderAck[id] = ack;
             using var _ = ct.Register(() => ack.TrySetCanceled(ct));
@@ -136,7 +115,7 @@ namespace ArcTriggerUI.Tws.Services
                 return id; // ack bekleme
             }
             Client.placeOrder(id, contract, order);
-            await ack.Task; // ilk status/openOrder bekle
+            await ack.Task;
             return id;
         }
 
@@ -357,7 +336,7 @@ namespace ArcTriggerUI.Tws.Services
             {
                 // LMT için offset = (LimitPrice - triggerPrice)
                 if (orderDto.LimitPrice is null)
-                    throw new ArgumentException("LimitPrice boş olamaz (LMT için).");
+                    throw new ArgumentException("LimitPrice cannot be null (for LMT).");
 
                 return await PlaceBreakoutBuyStopLimitWithProtectiveStopAsync(
                     conId: orderDto.OptionConId,
@@ -373,7 +352,7 @@ namespace ArcTriggerUI.Tws.Services
             }
             else
             {
-                throw new NotSupportedException($"Desteklenmeyen OrderMode: {orderDto.OrderMode}");
+                throw new NotSupportedException($"Unsupported OrderMode: {orderDto.OrderMode}");
             }
         }
 
@@ -546,6 +525,19 @@ namespace ArcTriggerUI.Tws.Services
                 tcs.TrySetResult(s?.Status ?? "open");
         }
 
+        public sealed class OrderUpdate
+        {
+            public int OrderId { get; init; }
+            public string Status { get; init; } = "";
+            public double Filled { get; init; }
+            public double Remaining { get; init; }
+            public double AvgFillPrice { get; init; }
+            public int ParentId { get; init; }
+        }
+
+        public event Action<OrderUpdate>? OnOrderStatusUpdated;
+
+
         public override void orderStatus(int orderId, string status, double filled, double remaining, double avgFillPrice,
             int permId, int parentId, double lastFillPrice, int clientId, string whyHeld, double mktCapPrice)
         {
@@ -555,6 +547,17 @@ namespace ArcTriggerUI.Tws.Services
             if (string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase) &&
                 _cancelAck.TryRemove(orderId, out var cts))
                 cts.TrySetResult(status);
+
+            // >>> EKLE: dışarıya bildir
+            OnOrderStatusUpdated?.Invoke(new OrderUpdate
+            {
+                OrderId = orderId,
+                Status = status ?? "",
+                Filled = filled,
+                Remaining = remaining,
+                AvgFillPrice = avgFillPrice,
+                ParentId = parentId
+            });
         }
 
         public override void error(int id, int errorCode, string errorMsg)
@@ -569,6 +572,50 @@ namespace ArcTriggerUI.Tws.Services
             if (_cancelAck.TryRemove(id, out var o2)) { o2.TrySetException(new Exception($"[{errorCode}] {errorMsg}")); return; }
 
             base.error(id, errorCode, errorMsg);
+        }
+
+        public async Task UpdateStopOrderQtyAsync(
+    Contract contract,
+    int stopOrderId,
+    int newQty,
+    string tif,
+    bool outsideRth,
+    string action,
+    bool isStopLimit,
+    double? auxStop,
+    double? limitAfterStop,
+    int? parentId,          // YENİ
+    string? openClose,      // YENİ ("C" olmalı)
+    string? account,        // YENİ
+    CancellationToken ct = default)
+        {
+            if (newQty <= 0)
+                throw new ArgumentOutOfRangeException(nameof(newQty));
+
+            var order = new Order
+            {
+                OrderId = stopOrderId,
+                Action = action,                          // SELL / BUY — ilk emirde neyse o
+                OrderType = isStopLimit ? "STP LMT" : "STP", // ilk emirde neyse o
+                TotalQuantity = newQty,
+                Tif = tif,
+                OutsideRth = outsideRth,
+                Transmit = true,
+                OpenClose = string.IsNullOrEmpty(openClose) ? "C" : openClose
+            };
+
+            if (parentId.HasValue) order.ParentId = parentId.Value;  // çocuk olarak kalması için
+            if (!string.IsNullOrWhiteSpace(account)) order.Account = account;
+
+            if (auxStop.HasValue) order.AuxPrice = auxStop.Value;              // STP tetik
+            if (isStopLimit && limitAfterStop.HasValue) order.LmtPrice = limitAfterStop.Value; // STP LMT limit
+
+            var ack = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _orderAck[stopOrderId] = ack;
+            using var _ = ct.Register(() => ack.TrySetCanceled(ct));
+
+            Client.placeOrder(stopOrderId, contract, order);   // modify
+            await ack.Task.ConfigureAwait(false);
         }
     }
 }
