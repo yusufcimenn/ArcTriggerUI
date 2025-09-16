@@ -143,7 +143,14 @@ namespace ArcTriggerUI.Dashboard
             InitHotSections();
 
             _twsService = twsService;
-            twsService.ConnectAsync("127.0.0.1", 7496, 0);
+            _ = Task.Run(async () =>
+            {
+                try { await twsService.ConnectAsync("127.0.0.1", 7496, 0); }
+                catch (Exception ex)
+                {
+                    MainThread.BeginInvokeOnMainThread(() => ShowAlert("Error", ex.Message));
+                }
+            });
 
             SymbolSuggestions.ItemsSource = _symbolResults;
 
@@ -766,6 +773,8 @@ namespace ArcTriggerUI.Dashboard
 
                 double breakevenPrice = position.AveragePrice; // Breakeven = ortalama fiyat
                 int stopQty = Math.Abs(position.Quantity);
+                string stopAction = position.Quantity >= 0 ? "SELL" : "BUY"; // long -> SELL stop, short -> BUY stop
+
 
                 // --- Önceki stop emrini iptal et
                 if (position.StopOrderId.HasValue)
@@ -777,7 +786,8 @@ namespace ArcTriggerUI.Dashboard
                 var stopOrderId = await _twsService.PlaceStopMarketAsync(
                     contract,
                     stopQty,
-                    breakevenPrice
+                    breakevenPrice,
+                    action: stopAction
                 );
 
                 // StopOrderId güncelle
@@ -1284,6 +1294,10 @@ namespace ArcTriggerUI.Dashboard
                 double newStopLoss = parentAction == "BUY"
     ? basePriceForStop - stopLossPrice
     : basePriceForStop + stopLossPrice;
+
+                // Tick uyumlu hale getir
+                newStopLoss = _twsService.AdjustPriceForTicks(contract, newStopLoss, "STP", childAction, isStopTrigger: true);
+
                 var stopOrder = new OrderBuilder()
                     .WithAction(childAction)
                     .WithOrderType("STP")
@@ -1295,9 +1309,7 @@ namespace ArcTriggerUI.Dashboard
                     .WithTransmit(true)
                     .Build();
 
-                var childStopId = await _twsService.PlaceOrderAsync(contract, stopOrder);
                 _lastContract = contract;
-                _lastStopOrderId = childStopId;
                 _lastStopAux = stopOrder.AuxPrice;    // read from the builder/order you created
                 _lastStopLimit = (stopOrder.OrderType?.Equals("STP LMT", StringComparison.OrdinalIgnoreCase) == true
                   && stopOrder.LmtPrice > 0)
@@ -1310,6 +1322,11 @@ namespace ArcTriggerUI.Dashboard
                 _lastParentId = parentId;
                 _lastOpenClose = stopOrder.OpenClose ?? "C";
                 _lastAccount = stopOrder.Account;
+
+                var childStopId = await _twsService.PlaceOrderAsync(contract, stopOrder);
+               
+                _lastStopOrderId = childStopId;
+                
 
                 await ShowAlert("Success", $"Order submitted.\nParentId: {parentId}\nStopLossId: {childStopId}");
             }

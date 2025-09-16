@@ -106,16 +106,32 @@ namespace ArcTriggerUI.Tws.Services
         public async Task<int> PlaceOrderAsync(Contract contract, Order order, CancellationToken ct = default)
         {
             var id = NextOrderId();
+
             var ack = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             _orderAck[id] = ack;
-            using var _ = ct.Register(() => ack.TrySetCanceled(ct));
-            if (!order.Transmit)
-            {
-                Client.placeOrder(id, contract, order);
-                return id; // ack bekleme
-            }
+
+            using var cancelReg = ct.Register(() => ack.TrySetCanceled(ct));
+
             Client.placeOrder(id, contract, order);
-            await ack.Task;
+
+            if (!order.Transmit)
+                return id; // parent/child paketliyorsanız ACK beklemeyin
+
+            // ACK ya da kısa bir timeout (ör. 3 sn)
+            Task finished = await Task.WhenAny(ack.Task, Task.Delay(TimeSpan.FromSeconds(3), ct)).ConfigureAwait(false);
+
+            if (finished == ack.Task)
+            {
+                // hata geldiyse burada fırlar
+                _ = await ack.Task.ConfigureAwait(false);
+            }
+            else
+            {
+                // timeout: memory leak olmasın
+                _orderAck.TryRemove(id, out _);
+                Console.WriteLine($"[WARN] No ACK for order {id} within timeout, continuing.");
+            }
+
             return id;
         }
 
@@ -193,14 +209,16 @@ namespace ArcTriggerUI.Tws.Services
 
 
         public Task<int> PlaceStopMarketAsync(
-            Contract contract, int qty, double stopTrigger,
+            Contract contract, int qty, double stopTrigger, string action = "SELL",
             string tif = "DAY", bool outsideRth = false, string? account = null, bool close = true, CancellationToken ct = default)
         {
+            var validAux = MakeValidPrice(contract, stopTrigger, "STP", "SELL", isStopTrigger: true);
+
             var ob = new OrderBuilder()
-                .WithAction("SELL")
+                .WithAction(action)
                 .WithOrderType("STP")
                 .WithQuantity(qty)
-                .WithStopPrice(stopTrigger)     // AuxPrice
+                .WithStopPrice(validAux)     // AuxPrice
                 .WithTif(tif)
                 .WithOutsideRth(outsideRth)
                 .WithOpenClose(close ? "C" : "O");
@@ -208,17 +226,24 @@ namespace ArcTriggerUI.Tws.Services
 
             return PlaceOrderAsync(contract, ob.Build(), ct);
         }
+        // TwsService içine ekle:
+        public double AdjustPriceForTicks(Contract c, double raw, string orderType, string action, bool isStopTrigger = false)
+            => MakeValidPrice(c, raw, orderType, action, isStopTrigger);
+
 
         public Task<int> PlaceStopLimitAsync(
             Contract contract, int qty, double stopTrigger, double limitPrice,
             string tif = "DAY", bool outsideRth = false, string? account = null, bool close = true, CancellationToken ct = default)
         {
+            var validAux = MakeValidPrice(contract, stopTrigger, "STP LMT", "SELL", isStopTrigger: true);
+            var validLimit = MakeValidPrice(contract, limitPrice, "STP LMT", "SELL", isStopTrigger: false);
+
             var ob = new OrderBuilder()
                 .WithAction("SELL")
                 .WithOrderType("STP LMT")
                 .WithQuantity(qty)
-                .WithStopPrice(stopTrigger)     // AuxPrice
-                .WithLimitPrice(limitPrice)     // LmtPrice
+                .WithStopPrice(validAux)     // AuxPrice
+                .WithLimitPrice(validLimit)     // LmtPrice
                 .WithTif(tif)
                 .WithOutsideRth(outsideRth)
                 .WithOpenClose(close ? "C" : "O");
@@ -377,6 +402,20 @@ namespace ArcTriggerUI.Tws.Services
                 _positionRequests.TryRemove(kvp.Key, out _);
                 break;
             }
+        }
+
+        public override void position(string account, Contract contract, double pos, double avgCost)
+        {
+            HandleIncomingPosition(account, contract, pos, avgCost);
+        }
+
+        public override void positionEnd()
+        {
+            try { Client.cancelPositions(); } catch { /* ignore */ }
+
+            foreach (var kvp in _positionRequests.ToArray())
+                if (_positionRequests.TryRemove(kvp.Key, out var tcs))
+                    tcs.TrySetResult(null);
         }
 
         // StopOrderId takibi ekle / güncelle
@@ -567,6 +606,27 @@ namespace ArcTriggerUI.Tws.Services
                     cd.Contract.PrimaryExch
                 ));
             }
+
+            // Market rule bilgilerini hazırla (async fire-and-forget)
+            _ = EnsureMarketRuleLoadedAsync(
+                cd.Contract.ConId,
+                // IB C#: cd.MarketRuleIds örn "26" ya da "26,57" (multi). İlkini alıyoruz.
+                int.TryParse((cd.MarketRuleIds ?? "").Split(',').FirstOrDefault(), out var rid) ? rid : (int?)null,
+                cd.MinTick > 0 ? cd.MinTick : (double?)null
+            );
+        }
+
+        public override void marketRule(int marketRuleId, PriceIncrement[] priceIncrements)
+        {
+            if (priceIncrements != null && priceIncrements.Length > 0)
+                _marketRuleIncrements[marketRuleId] = priceIncrements.OrderBy(p => p.LowEdge).ToList();
+        }
+
+        // (opsiyonel) tickReqParams ile minTick düşebilir; istersen burada da cache’le
+        public override void tickReqParams(int tickerId, double minTick, string bboExchange, int snapshotPermissions)
+        {
+            if (_marketData.TryGetValue(tickerId, out var d) && minTick > 0)
+                _conIdToMinTick[d.ConId] = minTick;
         }
 
         public override void contractDetailsEnd(int reqId)
@@ -654,19 +714,19 @@ namespace ArcTriggerUI.Tws.Services
         }
 
         public async Task UpdateStopOrderQtyAsync(
-    Contract contract,
-    int stopOrderId,
-    int newQty,
-    string tif,
-    bool outsideRth,
-    string action,
-    bool isStopLimit,
-    double? auxStop,
-    double? limitAfterStop,
-    int? parentId,          // YENİ
-    string? openClose,      // YENİ ("C" olmalı)
-    string? account,        // YENİ
-    CancellationToken ct = default)
+        Contract contract,
+        int stopOrderId,
+        int newQty,
+        string tif,
+        bool outsideRth,
+        string action,
+        bool isStopLimit,
+        double? auxStop,
+        double? limitAfterStop,
+        int? parentId,          // YENİ
+        string? openClose,      // YENİ ("C" olmalı)
+        string? account,        // YENİ
+        CancellationToken ct = default)
         {
             if (newQty <= 0)
                 throw new ArgumentOutOfRangeException(nameof(newQty));
@@ -696,7 +756,89 @@ namespace ArcTriggerUI.Tws.Services
             Client.placeOrder(stopOrderId, contract, order);   // modify
             await ack.Task.ConfigureAwait(false);
         }
+
+
+
+        private readonly ConcurrentDictionary<int, List<PriceIncrement>> _marketRuleIncrements = new(); // marketRuleId -> increments
+        private readonly ConcurrentDictionary<int, int> _conIdToMarketRule = new(); // conId -> marketRuleId
+        private readonly ConcurrentDictionary<int, double> _conIdToMinTick = new(); // conId -> minTick (fallback)
+
+        // Price’ı fiyata göre geçerli artıma yuvarla
+        private static double RoundToIncrement(double price, double increment, MidpointRounding mode = MidpointRounding.AwayFromZero)
+        {
+            if (increment <= 0) return price;
+            var p = (decimal)price;
+            var inc = (decimal)increment;
+            var roundedUnits = Math.Round(p / inc, 0, mode);
+            return (double)(roundedUnits * inc);
+        }
+
+        // Aralık bazlı market rule: price hangi dilimdeyse o dilimin increment’ını kullan
+        private static double MakeValidByRule(double price, IEnumerable<PriceIncrement> incs, MidpointRounding mode)
+        {
+            // IB increments lowEdge artan gelir; price >= lowEdge olan son dilimi seç
+            PriceIncrement? match = null;
+            foreach (var pi in incs)
+                if (price >= pi.LowEdge) match = pi;
+
+            var inc = (match?.Increment > 0) ? match!.Increment : 0.0;
+            return inc > 0 ? RoundToIncrement(price, inc, mode) : price;
+        }
+
+        // Piyasa kurallarını çek ve cache’le (contractDetails çağrısından sonra)
+        private async Task EnsureMarketRuleLoadedAsync(int conId, int? marketRuleIdMaybe, double? minTickMaybe, CancellationToken ct = default)
+        {
+            if (marketRuleIdMaybe.HasValue && marketRuleIdMaybe.Value > 0 && !_marketRuleIncrements.ContainsKey(marketRuleIdMaybe.Value))
+            {
+                // IB: reqMarketRule only by id
+                Client.reqMarketRule(marketRuleIdMaybe.Value);
+                // basit bekleme: increments gelince marketRule() callback’i dolduracak
+                // ufak bir timeout ile pas geçebiliriz
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                while (sw.Elapsed < TimeSpan.FromSeconds(2) && !_marketRuleIncrements.ContainsKey(marketRuleIdMaybe.Value))
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+            }
+            if (marketRuleIdMaybe.HasValue)
+                _conIdToMarketRule[conId] = marketRuleIdMaybe.Value;
+
+            if (minTickMaybe.HasValue && minTickMaybe.Value > 0)
+                _conIdToMinTick[conId] = minTickMaybe.Value;
+        }
+
+        // Yön ve emir tipine göre güvenli yuvarlama modu seç
+        private static MidpointRounding ModeFor(string orderType, string action, bool isStopTrigger)
+        {
+            // SELL stop (tetik aşağıda olmalı) → aşağı yuvarla; BUY stop → yukarı
+            if (isStopTrigger)
+                return (action?.Equals("SELL", StringComparison.OrdinalIgnoreCase) == true)
+                    ? MidpointRounding.ToZero // floor için decimal trük: pozitif fiyatlarda ToZero aşağıya çeker
+                    : MidpointRounding.AwayFromZero; // BUY stop yukarı
+                                                     // Limit: SELL limit yukarı, BUY limit aşağı (genelde “fiyata zarar verme” mantığı)
+            if (orderType?.IndexOf("LMT", StringComparison.OrdinalIgnoreCase) >= 0)
+                return (action?.Equals("SELL", StringComparison.OrdinalIgnoreCase) == true)
+                    ? MidpointRounding.AwayFromZero
+                    : MidpointRounding.ToZero;
+            // Varsayılan
+            return MidpointRounding.AwayFromZero;
+        }
+
+        // Dış API: Verilen fiyatı bu contract için geçerli tick’e çevir
+        private double MakeValidPrice(Contract c, double raw, string orderType, string action, bool isStopTrigger)
+        {
+            var mode = ModeFor(orderType, action, isStopTrigger);
+
+            // 1) MarketRule varsa onu kullan
+            if (_conIdToMarketRule.TryGetValue(c.ConId, out var mrId) && _marketRuleIncrements.TryGetValue(mrId, out var incs) && incs?.Count > 0)
+                return MakeValidByRule(raw, incs, mode);
+
+            // 2) Yoksa minTick fallback
+            if (_conIdToMinTick.TryGetValue(c.ConId, out var mt) && mt > 0)
+                return RoundToIncrement(raw, mt, mode);
+
+            // 3) Hiçbiri yoksa olduğu gibi
+            return raw;
+        }
+
+
     }
-
-
 }

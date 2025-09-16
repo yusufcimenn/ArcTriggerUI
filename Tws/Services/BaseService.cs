@@ -250,12 +250,12 @@ namespace ArcTriggerUI.Tws.Services
 
         }
 
-        public void position(string account, Contract contract, double pos, double avgCost)
+        public virtual void position(string account, Contract contract, double pos, double avgCost)
         {
 
         }
 
-        public void positionEnd()
+        public virtual void positionEnd()
         {
 
         }
@@ -380,7 +380,7 @@ namespace ArcTriggerUI.Tws.Services
 
         }
 
-        public void tickReqParams(int tickerId, double minTick, string bboExchange, int snapshotPermissions)
+        public virtual void tickReqParams(int tickerId, double minTick, string bboExchange, int snapshotPermissions)
         {
 
         }
@@ -425,7 +425,7 @@ namespace ArcTriggerUI.Tws.Services
 
         }
 
-        public void marketRule(int marketRuleId, PriceIncrement[] priceIncrements)
+        public virtual void marketRule(int marketRuleId, PriceIncrement[] priceIncrements)
         {
 
         }
