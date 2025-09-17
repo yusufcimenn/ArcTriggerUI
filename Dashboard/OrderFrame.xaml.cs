@@ -25,6 +25,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using static ArcTriggerUI.Dtos.Portfolio.ResultPortfolio;
+using static ArcTriggerUI.Tws.Services.TwsService;
 using Layout = Microsoft.Maui.Controls.Layout;
 using Order = IBApi.Order;
 
@@ -152,17 +153,17 @@ namespace ArcTriggerUI.Dashboard
                 }
             });
 
+            // SCANNER stream için EKLE:
+            _twsService.OnScannerData -= HandleScannerData;
+            _twsService.OnScannerData += HandleScannerData;
+            _twsService.OnScannerEnd -= HandleScannerEnd;
+            _twsService.OnScannerEnd += HandleScannerEnd; 
             SymbolSuggestions.ItemsSource = _symbolResults;
 
             // XAML'de CollectionView/ListView'e x:Name="ScannerList" verdiğini varsayıyorum
-            ScannerList.ItemsSource = _scannerRows;
-
-            // Scanner eventleri
-            _twsService.OnScannerData -= HandleScannerData;
-            _twsService.OnScannerData += HandleScannerData;
-
-            _twsService.OnScannerEnd -= HandleScannerEnd;
-            _twsService.OnScannerEnd += HandleScannerEnd;
+            ScannerList.ItemsSource = _scannerItems;
+            _twsService.OnMarketData -= OnMarketDataTick;
+            _twsService.OnMarketData += OnMarketDataTick;
 
             // Se�im yap�ld���nda Entry'ye yaz
             SymbolSuggestions.SelectionChanged += (s, e) =>
@@ -1374,21 +1375,20 @@ namespace ArcTriggerUI.Dashboard
         }
 
         // Tick geldiğinde
-        private void OnMarketDataTick(MarketData data)
+        private void OnMarketDataTick(MarketData d)
         {
-            if (data.TickerId != _currentTickerId)
-                return;
+            if (!_byTicker.TryGetValue(d.TickerId, out var vm)) return;
 
-                _currentLastPrice = data.Last;
-                var lastPriceStr = _currentLastPrice.ToString("0.00", CultureInfo.InvariantCulture);
-
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
-                    mrktLbl.Text = $"Market Price: {lastPriceStr}";
-                });
-
-                Console.WriteLine($"Symbol: {_selectedSymbol}, LastPrice: {_currentLastPrice}");
-           
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (d.Last > 0) vm.Last = d.Last;
+                if (d.Bid > 0) vm.Bid = d.Bid;
+                if (d.Ask > 0) vm.Ask = d.Ask;
+                if (d.Volume >= 0) vm.Volume = d.Volume;
+                vm.BidSize = d.BidSize;
+                vm.AskSize = d.AskSize;
+                vm.LastSize = d.LastSize;
+            });
         }
 
 
@@ -1581,25 +1581,53 @@ namespace ArcTriggerUI.Dashboard
         {
             try
             {
-                // aynı anda bir tane çalışsın
                 if (_scannerReqId.HasValue)
                 {
                     _twsService.StopScanner(_scannerReqId.Value);
                     _scannerReqId = null;
                 }
 
-                // Örnek: US major borsalarda en çok hacimli hisseler
+                // canlı dataları kapat + koleksiyonları temizle
+                foreach (var vm in _scannerItems)
+                    if (vm.TickerId is int t) _twsService.CancelMarketData(t);
+
+                _scannerItems.Clear();
+                _byTicker.Clear();
+                _byConId.Clear();
+
+                // Öncelikli semboller listesi
+                string[] prioritySymbols =
+                {
+            "AAPL", "MSFT", "META", "TSLA", "AMD", "AMZN",
+            "SHOP", "UPST", "TEM", "HIMS", "RKLB", "ZM",
+            "ORCL", "AVGO", "COIN", "MSTR",
+            "OKLO", "SOUN", "SNOW", "CRWV", "DDOG",
+            "UNH", "SMCI", "PYPL", "ARM"
+        };
+                int count = 0;
+                // Öncelikli sembolleri koleksiyona ekle
+                foreach (var symbol in prioritySymbols)
+                {
+                    count++;
+                    _scannerItems.Add(new ScannerItemVM
+                    {
+                        Symbol = symbol,
+                        SecType = "STK",
+                        ConId = count         // opsiyonel: TWS’den ConId alabilirsin
+                    });
+                }
+
+                // Scanner ile en çok işlem gören hisseleri al
                 var sub = new ScannerSubscription
                 {
                     NumberOfRows = 50,
                     Instrument = "STK",
-                    LocationCode = "STK.US.MAJOR", // NASDAQ/NYSE/AMEX
-                    ScanCode = "HOT_BY_VOLUME", // çok kullanılan preset
-                    AbovePrice = 1,               // 1$ üstü
-                    AboveVolume = 100000           // min hacim
+                    LocationCode = "STK.US.MAJOR",
+                    ScanCode = "HOT_BY_VOLUME",
+                    AbovePrice = 1,
+                    AboveVolume = 100000
                 };
 
-                _scannerRows.Clear();
                 _scannerReqId = _twsService.StartScanner(sub);
             }
             catch (Exception ex)
@@ -1615,6 +1643,12 @@ namespace ArcTriggerUI.Dashboard
                 _twsService.StopScanner(_scannerReqId.Value);
                 _scannerReqId = null;
             }
+            foreach (var vm in _scannerItems)
+                if (vm.TickerId is int t)
+                    _twsService.CancelMarketData(t);
+
+            _byTicker.Clear();
+            _byConId.Clear();
         }
 
         private async void OnRunScannerOnceClicked(object sender, EventArgs e)
@@ -1626,14 +1660,42 @@ namespace ArcTriggerUI.Dashboard
                     NumberOfRows = 50,
                     Instrument = "STK",
                     LocationCode = "STK.US.MAJOR",
-                    ScanCode = "TOP_PERC_GAIN", // tek seferlik: günün en çok yükselenleri
+                    ScanCode = "TOP_PERC_GAIN",
                     AbovePrice = 1,
                     AboveVolume = 100000
                 };
 
+                foreach (var vm in _scannerItems)
+                    if (vm.TickerId is int t) _twsService.CancelMarketData(t);
+                _scannerItems.Clear();
+                _byTicker.Clear();
+                _byConId.Clear();
+
                 var list = await _twsService.RunScannerOnceAsync(sub, timeoutMs: 4000);
-                _scannerRows.Clear();
-                foreach (var row in list) _scannerRows.Add(row);
+
+                int started = 0;
+                foreach (var row in list)
+                {
+                    var vm = new ScannerItemVM
+                    {
+                        Rank = row.Rank,
+                        ConId = row.ConId,
+                        Symbol = row.Symbol,
+                        LongName = row.LongName,
+                        Exchange = row.Exchange,
+                        SecType = string.IsNullOrWhiteSpace(row.SecType) ? "STK" : row.SecType
+                    };
+                    _scannerItems.Add(vm);
+                    _byConId[row.ConId] = vm;
+
+                    if (started < MaxLiveRows)
+                    {
+                        var tId = _twsService.RequestMarketData(row.ConId, secType: "STK", exchange: "SMART", currency: "USD", marketDataType: 3);
+                        vm.TickerId = tId;
+                        _byTicker[tId] = vm;
+                        started++;
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -1641,13 +1703,39 @@ namespace ArcTriggerUI.Dashboard
             }
         }
 
+        private readonly ObservableCollection<ScannerItemVM> _scannerItems = new();
+        private readonly Dictionary<int, ScannerItemVM> _byTicker = new();  // tickerId -> vm
+        private readonly Dictionary<int, ScannerItemVM> _byConId = new();  // conId    -> vm
+        private const int MaxLiveRows = 20; // IB pacing: aynı anda makul sayıda stream
+
         private void HandleScannerData(int reqId, TwsService.ScannerRow row)
         {
             if (_scannerReqId.HasValue && reqId != _scannerReqId.Value) return;
 
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                _scannerRows.Add(row);
+                // zaten varsa tekrar ekleme
+                if (_byConId.ContainsKey(row.ConId)) return;
+
+                var vm = new ScannerItemVM
+                {
+                    Rank = row.Rank,
+                    ConId = row.ConId,
+                    Symbol = row.Symbol,
+                    LongName = row.LongName,
+                    Exchange = row.Exchange,
+                    SecType = row.SecType ?? ""
+                };
+                _scannerItems.Add(vm);
+                _byConId[row.ConId] = vm;
+
+                // ilk MaxLiveRows için canlı fiyat başlat
+                if (_byTicker.Count < MaxLiveRows)
+                {
+                    var tId = _twsService.RequestMarketData(row.ConId, secType: "STK", exchange: "SMART", currency: "USD", marketDataType: 3);
+                    vm.TickerId = tId;
+                    _byTicker[tId] = vm;
+                }
             });
         }
 
@@ -1661,16 +1749,16 @@ namespace ArcTriggerUI.Dashboard
 
         private void OnScannerSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (e.CurrentSelection?.FirstOrDefault() is not TwsService.ScannerRow row) return;
+            if (e.CurrentSelection?.FirstOrDefault() is not ScannerItemVM vm) return;
 
-            // UI alanlarını doldur
-            _selectedConId = row.ConId;
-            _selectedSymbol = row.Symbol;
-            _selectedSectype = string.IsNullOrWhiteSpace(row.SecType) ? "STK" : row.SecType;
+            _selectedConId = vm.ConId;
+            _selectedSymbol = vm.Symbol;
+            _selectedSectype = string.IsNullOrWhiteSpace(vm.SecType) ? "STK" : vm.SecType;
 
-            SymbolSearchEntry.Text = $"{row.Symbol} {row.LongName}".Trim();
-
+            SymbolSearchEntry.Text = $"{vm.Symbol} {vm.LongName}".Trim();
         }
+
+
 
     }
 }

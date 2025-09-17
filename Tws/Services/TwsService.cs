@@ -1,14 +1,15 @@
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using IBApi;
+using ArcTriggerUI.Dtos;
 // SymbolMatch, ContractInfo, OptionChainParams modellerin buradaysa
 using ArcTriggerUI.Tws.Models;
 using ArcTriggerUI.Tws.Utils;
-using ArcTriggerUI.Dtos;
+using IBApi;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ArcTriggerUI.Tws.Services
 {
@@ -632,18 +633,17 @@ namespace ArcTriggerUI.Tws.Services
         public override void tickSize(int tickerId, int field, int size)
         {
             if (!_marketData.TryGetValue(tickerId, out var d)) return;
-            if (size <= 0) return;
+            if (size < 0) return;
 
-            if (field == 0 || field == 3)  // Bid/Ask Size
-                d.Volume = size;
-
-            if (field == 8) // Volume
-                d.Volume = size;
-
+            switch (field)
+            {
+                case 0: d.BidSize = size; break;   // BID_SIZE
+                case 3: d.AskSize = size; break;   // ASK_SIZE
+                case 5: d.LastSize = size; break;  // LAST_SIZE
+                case 8: d.Volume = size; break;    // VOLUME (cumulative)
+            }
             d.Timestamp = DateTime.UtcNow;
-
-            //Debug
-            Console.WriteLine($"[{d.Timestamp:HH:mm:ss}] TickSize {field} Size={size}");
+            OnMarketData?.Invoke(d);
         }
 
         public override void symbolSamples(int reqId, ContractDescription[] descs)
@@ -955,7 +955,28 @@ namespace ArcTriggerUI.Tws.Services
             Console.WriteLine("ScannerParameters XML received.");
         }
 
+        public class ScannerItemVM : INotifyPropertyChanged
+        {
+            public int Rank { get; set; }
+            public int ConId { get; set; }
+            public string Symbol { get; set; } = "";
+            public string LongName { get; set; } = "";
+            public string Exchange { get; set; } = "";
+            public string SecType { get; set; } = "";
 
+            double _last; public double Last { get => _last; set { _last = value; OnChanged(nameof(Last)); } }
+            double _bid; public double Bid { get => _bid; set { _bid = value; OnChanged(nameof(Bid)); } }
+            double _ask; public double Ask { get => _ask; set { _ask = value; OnChanged(nameof(Ask)); } }
+            int _vol; public int Volume { get => _vol; set { _vol = value; OnChanged(nameof(Volume)); } }
+            int _bidSz; public int BidSize { get => _bidSz; set { _bidSz = value; OnChanged(nameof(BidSize)); } }
+            int _askSz; public int AskSize { get => _askSz; set { _askSz = value; OnChanged(nameof(AskSize)); } }
+            int _lastSz; public int LastSize { get => _lastSz; set { _lastSz = value; OnChanged(nameof(LastSize)); } }
+
+            public int? TickerId { get; set; } // mktdata id
+
+            public event PropertyChangedEventHandler? PropertyChanged;
+            void OnChanged(string n) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(n));
+        }
 
     }
 }

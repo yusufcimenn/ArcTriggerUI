@@ -589,75 +589,61 @@
                         <!-- SCANNER: canlı en çok işlem görenler / gainers listesi -->
                         <Grid Grid.Row="2" Grid.ColumnSpan="4" Padding="6,8">
                             <VerticalStackLayout Spacing="6">
+
                                 <!-- başlık + aksiyonlar -->
                                 <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
                                     <Label Text="Scanner" Style="{StaticResource HeaderLabel}" />
-                                    <Button Text="Start"
-                    Style="{StaticResource ActionOcean}"
-                    Clicked="OnStartScannerClicked"/>
-                                    <Button Text="Run Once"
-                    Style="{StaticResource ActionNeutral}"
-                    Clicked="OnRunScannerOnceClicked"/>
-                                    <Button Text="Stop"
-                    Style="{StaticResource ActionDanger}"
-                    Clicked="OnStopScannerClicked"/>
+                                    <Button Text="Start"    Style="{StaticResource ActionOcean}"   Clicked="OnStartScannerClicked"/>
+                                    <Button Text="Run Once" Style="{StaticResource ActionNeutral}" Clicked="OnRunScannerOnceClicked"/>
+                                    <Button Text="Stop"     Style="{StaticResource ActionDanger}"  Clicked="OnStopScannerClicked"/>
                                 </HorizontalStackLayout>
 
-                                <ScrollView>
-                                <!-- sonuç listesi -->
+                                <!-- KOLON BAŞLIKLARI -->
+                                <Grid Padding="6,2"
+          ColumnDefinitions="40,80,*,70,70,70,80,60,60,60">
+                                    <Label Grid.Column="0" Text="#"       HorizontalTextAlignment="Center" FontAttributes="Bold"/>
+                                    <Label Grid.Column="1" Text="Symbol"  FontAttributes="Bold"/>
+                                    <Label Grid.Column="2" Text="Name"    FontAttributes="Bold"/>
+                                    <Label Grid.Column="3" Text="Last"    HorizontalTextAlignment="End"    FontAttributes="Bold"/>
+                                    <Label Grid.Column="4" Text="Bid"     HorizontalTextAlignment="End"    FontAttributes="Bold"/>
+                                    <Label Grid.Column="5" Text="Ask"     HorizontalTextAlignment="End"    FontAttributes="Bold"/>
+                                    <Label Grid.Column="6" Text="Volume"  HorizontalTextAlignment="End"    FontAttributes="Bold"/>
+                                    <Label Grid.Column="7" Text="BidSz"   HorizontalTextAlignment="End"    FontAttributes="Bold"/>
+                                    <Label Grid.Column="8" Text="AskSz"   HorizontalTextAlignment="End"    FontAttributes="Bold"/>
+                                    <Label Grid.Column="9" Text="LastSz"  HorizontalTextAlignment="End"    FontAttributes="Bold"/>
+                                </Grid>
+
+                                <!-- sonuç listesi (VERTICAL) -->
                                 <CollectionView x:Name="ScannerList"
-                        SelectionMode="Single"
-                        SelectionChanged="OnScannerSelectionChanged"
-                        ItemSizingStrategy="MeasureAllItems"
-                        HeightRequest="260"
-                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1B1D22}">
+                    SelectionMode="Single"
+                    SelectionChanged="OnScannerSelectionChanged"
+                    HeightRequest="120"
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1B1D22}">
                                     <CollectionView.ItemsLayout>
-                                        <LinearItemsLayout Orientation="Horizontal" />
+                                        <LinearItemsLayout Orientation="Vertical"/>
                                     </CollectionView.ItemsLayout>
 
                                     <CollectionView.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}"
-                            StrokeThickness="1"
-                            StrokeShape="RoundRectangle 8"
-                            Padding="10" Margin="0,4">
-                                                <Grid ColumnDefinitions="40,90,*,Auto"
-                              RowDefinitions="Auto,Auto">
-                                                    <!-- Rank -->
-                                                    <Label Grid.RowSpan="2" Grid.Column="0"
-                                   Text="{Binding Rank}"
-                                   HorizontalTextAlignment="Center"
-                                   VerticalTextAlignment="Center"
-                                   FontAttributes="Bold" />
+                                            <Grid Padding="6,2"
+                ColumnDefinitions="40,80,*,70,70,70,80,60,60,60">
+                                                <Label Grid.Column="0" Text="{Binding Rank}"   BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"      HorizontalTextAlignment="Center"/>
+                                                <Label Grid.Column="1" Text="{Binding Symbol}" BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"     FontAttributes="Bold"/>
+                                                <Label Grid.Column="2" Text="{Binding LongName}" BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"    LineBreakMode="TailTruncation"/>
 
-                                                    <!-- Symbol + SecType -->
-                                                    <HorizontalStackLayout Grid.Row="0" Grid.Column="1" Spacing="6">
-                                                        <Label Text="{Binding Symbol}" FontAttributes="Bold" />
-                                                        <Label Text="{Binding SecType}" />
-                                                    </HorizontalStackLayout>
+                                                <Label Grid.Column="3" Text="{Binding Last, StringFormat='{}{0:F2}'}" BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}" HorizontalTextAlignment="End"/>
+                                                <Label Grid.Column="4" Text="{Binding Bid,  StringFormat='{}{0:F2}'}" BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}" HorizontalTextAlignment="End"/>
+                                                <Label Grid.Column="5" Text="{Binding Ask,  StringFormat='{}{0:F2}'}" BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}" HorizontalTextAlignment="End"/>
 
-                                                    <!-- LongName -->
-                                                    <Label Grid.Row="0" Grid.Column="2"
-                                   Text="{Binding LongName}"
-                                   LineBreakMode="TailTruncation" />
-
-                                                    <!-- Distance / Projection (scanner metrikleri) -->
-                                                    <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Spacing="12">
-                                                        <Label Text="{Binding Distance}" />
-                                                        <Label Text="{Binding Projection}" />
-                                                    </HorizontalStackLayout>
-
-                                                    <!-- Exchange / Currency -->
-                                                    <HorizontalStackLayout Grid.Row="1" Grid.Column="3" Spacing="6">
-                                                        <Label Text="{Binding Exchange}" />
-                                                        <Label Text="{Binding Currency}" />
-                                                    </HorizontalStackLayout>
-                                                </Grid>
-                                            </Border>
+                                                <Label Grid.Column="6" Text="{Binding Volume}" BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"  HorizontalTextAlignment="End"/>
+                                                <Label Grid.Column="7" Text="{Binding BidSize}" BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"  HorizontalTextAlignment="End"/>
+                                                <Label Grid.Column="8" Text="{Binding AskSize}" BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}"  HorizontalTextAlignment="End"/>
+                                                <Label Grid.Column="9" Text="{Binding LastSize}" BackgroundColor="{AppThemeBinding Light=#D1D5DB, Dark=#374151}" HorizontalTextAlignment="End"/>
+                                            </Grid>
                                         </DataTemplate>
                                     </CollectionView.ItemTemplate>
                                 </CollectionView>
-                                </ScrollView>
+
                             </VerticalStackLayout>
                         </Grid>
 
