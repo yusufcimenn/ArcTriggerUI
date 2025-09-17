@@ -265,17 +265,17 @@ namespace ArcTriggerUI.Tws.Services
 
         }
 
-        public void scannerParameters(string xml)
+        public virtual void scannerParameters(string xml)
         {
 
         }
 
-        public void scannerData(int reqId, int rank, ContractDetails contractDetails, string distance, string benchmark, string projection, string legsStr)
+        public virtual void scannerData(int reqId, int rank, ContractDetails contractDetails, string distance, string benchmark, string projection, string legsStr)
         {
 
         }
 
-        public void scannerDataEnd(int reqId)
+        public virtual void scannerDataEnd(int reqId)
         {
 
         }

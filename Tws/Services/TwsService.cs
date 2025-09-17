@@ -12,7 +12,7 @@ using ArcTriggerUI.Dtos;
 
 namespace ArcTriggerUI.Tws.Services
 {
-    public sealed class TwsService : BaseService
+    public sealed partial class TwsService : BaseService
     {
         // ---- reqId/Task eşlemesi
         private int _nextReqId = 0;
@@ -25,6 +25,79 @@ namespace ArcTriggerUI.Tws.Services
         // ---- orderId/ACK yönetimi
         private readonly ConcurrentDictionary<int, TaskCompletionSource<string>> _orderAck = new();
         private readonly ConcurrentDictionary<int, TaskCompletionSource<string>> _cancelAck = new();
+
+        // Stream & one-shot için basit model
+        public sealed class ScannerRow
+        {
+            public int Rank { get; init; }
+            public int ConId { get; init; }
+            public string Symbol { get; init; } = "";
+            public string SecType { get; init; } = "";
+            public string Exchange { get; init; } = "";
+            public string Currency { get; init; } = "";
+            public string LocalSymbol { get; init; } = "";
+            public string TradingClass { get; init; } = "";
+            public string LongName { get; init; } = "";
+            public string Distance { get; init; } = "";
+            public string Benchmark { get; init; } = "";
+            public string Projection { get; init; } = "";
+            public string LegsStr { get; init; } = "";
+        }
+
+        // Yayın (stream) eventleri
+        public event Action<int, ScannerRow>? OnScannerData; // reqId, row
+        public event Action<int>? OnScannerEnd;
+
+        // One-shot (tek seferde liste isteyenler için)
+        private readonly ConcurrentDictionary<int, (TaskCompletionSource<List<ScannerRow>> tcs, List<ScannerRow> buf)>
+            _scannerOnce = new();
+
+        // Scanner başlat (stream)
+        public int StartScanner(ScannerSubscription sub, List<TagValue>? subscriptionOptions = null, List<TagValue>? filterOptions = null)
+        {
+            int reqId = NextReqId();
+            // NULL yerine boş listeleri geçir
+            Client.reqScannerSubscription(
+                reqId,
+                sub,
+                subscriptionOptions ?? new List<TagValue>(),
+                filterOptions ?? new List<TagValue>()
+            );
+            return reqId;
+        }
+
+        // Scanner durdur
+        public void StopScanner(int reqId)
+        {
+            try { Client.cancelScannerSubscription(reqId); } catch { /* ignore */ }
+            // one-shot bekleyen varsa tamamla
+            if (_scannerOnce.TryRemove(reqId, out var box))
+                box.tcs.TrySetResult(box.buf);
+        }
+
+        // One-shot: belirli süre bekle, sonucu liste olarak ver (otomatik cancel)
+        public async Task<IReadOnlyList<ScannerRow>> RunScannerOnceAsync(ScannerSubscription sub, int timeoutMs = 2500)
+        {
+            int reqId = NextReqId();
+            var tcs = new TaskCompletionSource<List<ScannerRow>>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _scannerOnce[reqId] = (tcs, new List<ScannerRow>());
+
+            // Burada da boş listeler
+            Client.reqScannerSubscription(reqId, sub, new List<TagValue>(), new List<TagValue>());
+
+            using var cts = new CancellationTokenSource(timeoutMs);
+            using var _ = cts.Token.Register(() =>
+            {
+                if (_scannerOnce.TryRemove(reqId, out var box))
+                    box.tcs.TrySetResult(box.buf);
+                try { Client.cancelScannerSubscription(reqId); } catch { }
+            });
+
+            var list = await tcs.Task.ConfigureAwait(false);
+            try { Client.cancelScannerSubscription(reqId); } catch { }
+            return list;
+        }
+
 
         // ---- Bağlantı
         public bool isConnected = false;
@@ -838,6 +911,50 @@ namespace ArcTriggerUI.Tws.Services
             // 3) Hiçbiri yoksa olduğu gibi
             return raw;
         }
+
+        public override void scannerData(int reqId, int rank, ContractDetails cd, string distance, string benchmark, string projection, string legsStr)
+        {
+            var row = new ScannerRow
+            {
+                Rank = rank,
+                ConId = cd.Contract.ConId,
+                Symbol = cd.Contract.Symbol ?? "",
+                SecType = cd.Contract.SecType ?? "",
+                Exchange = cd.Contract.Exchange ?? cd.Contract.PrimaryExch ?? "",
+                Currency = cd.Contract.Currency ?? "",
+                LocalSymbol = cd.Contract.LocalSymbol ?? "",
+                TradingClass = cd.Contract.TradingClass ?? "",
+                LongName = cd.LongName ?? "",
+                Distance = distance ?? "",
+                Benchmark = benchmark ?? "",
+                Projection = projection ?? "",
+                LegsStr = legsStr ?? ""
+            };
+
+            // One-shot toplayan varsa buffer’a yaz
+            if (_scannerOnce.TryGetValue(reqId, out var box))
+                box.buf.Add(row);
+
+            // Stream edenlere yayınla
+            OnScannerData?.Invoke(reqId, row);
+        }
+
+        public override void scannerDataEnd(int reqId)
+        {
+            // One-shot kapat
+            if (_scannerOnce.TryRemove(reqId, out var box))
+                box.tcs.TrySetResult(box.buf);
+
+            OnScannerEnd?.Invoke(reqId);
+        }
+
+        // (opsiyonel) scannerParameters almak istersen:
+        public override void scannerParameters(string xml)
+        {
+            // İhtiyaç olursa UI'ya gösterilebilir/loglanabilir
+            Console.WriteLine("ScannerParameters XML received.");
+        }
+
 
 
     }

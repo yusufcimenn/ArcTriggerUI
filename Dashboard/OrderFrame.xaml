@@ -418,10 +418,6 @@
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>
 
-
-
-
-
                                 <!-- Alpha -->
 
                             </HorizontalStackLayout>
@@ -588,6 +584,81 @@
 
                             </HorizontalStackLayout>
 
+                        </Grid>
+
+                        <!-- SCANNER: canlı en çok işlem görenler / gainers listesi -->
+                        <Grid Grid.Row="2" Grid.ColumnSpan="4" Padding="6,8">
+                            <VerticalStackLayout Spacing="6">
+                                <!-- başlık + aksiyonlar -->
+                                <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                                    <Label Text="Scanner" Style="{StaticResource HeaderLabel}" />
+                                    <Button Text="Start"
+                    Style="{StaticResource ActionOcean}"
+                    Clicked="OnStartScannerClicked"/>
+                                    <Button Text="Run Once"
+                    Style="{StaticResource ActionNeutral}"
+                    Clicked="OnRunScannerOnceClicked"/>
+                                    <Button Text="Stop"
+                    Style="{StaticResource ActionDanger}"
+                    Clicked="OnStopScannerClicked"/>
+                                </HorizontalStackLayout>
+
+                                <ScrollView>
+                                <!-- sonuç listesi -->
+                                <CollectionView x:Name="ScannerList"
+                        SelectionMode="Single"
+                        SelectionChanged="OnScannerSelectionChanged"
+                        ItemSizingStrategy="MeasureAllItems"
+                        HeightRequest="260"
+                        BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#1B1D22}">
+                                    <CollectionView.ItemsLayout>
+                                        <LinearItemsLayout Orientation="Horizontal" />
+                                    </CollectionView.ItemsLayout>
+
+                                    <CollectionView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#2A2D34}"
+                            StrokeThickness="1"
+                            StrokeShape="RoundRectangle 8"
+                            Padding="10" Margin="0,4">
+                                                <Grid ColumnDefinitions="40,90,*,Auto"
+                              RowDefinitions="Auto,Auto">
+                                                    <!-- Rank -->
+                                                    <Label Grid.RowSpan="2" Grid.Column="0"
+                                   Text="{Binding Rank}"
+                                   HorizontalTextAlignment="Center"
+                                   VerticalTextAlignment="Center"
+                                   FontAttributes="Bold" />
+
+                                                    <!-- Symbol + SecType -->
+                                                    <HorizontalStackLayout Grid.Row="0" Grid.Column="1" Spacing="6">
+                                                        <Label Text="{Binding Symbol}" FontAttributes="Bold" />
+                                                        <Label Text="{Binding SecType}" />
+                                                    </HorizontalStackLayout>
+
+                                                    <!-- LongName -->
+                                                    <Label Grid.Row="0" Grid.Column="2"
+                                   Text="{Binding LongName}"
+                                   LineBreakMode="TailTruncation" />
+
+                                                    <!-- Distance / Projection (scanner metrikleri) -->
+                                                    <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Spacing="12">
+                                                        <Label Text="{Binding Distance}" />
+                                                        <Label Text="{Binding Projection}" />
+                                                    </HorizontalStackLayout>
+
+                                                    <!-- Exchange / Currency -->
+                                                    <HorizontalStackLayout Grid.Row="1" Grid.Column="3" Spacing="6">
+                                                        <Label Text="{Binding Exchange}" />
+                                                        <Label Text="{Binding Currency}" />
+                                                    </HorizontalStackLayout>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </CollectionView.ItemTemplate>
+                                </CollectionView>
+                                </ScrollView>
+                            </VerticalStackLayout>
                         </Grid>
 
                         <!-- Orders Container -->

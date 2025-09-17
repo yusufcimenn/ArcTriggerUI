@@ -154,6 +154,16 @@ namespace ArcTriggerUI.Dashboard
 
             SymbolSuggestions.ItemsSource = _symbolResults;
 
+            // XAML'de CollectionView/ListView'e x:Name="ScannerList" verdiğini varsayıyorum
+            ScannerList.ItemsSource = _scannerRows;
+
+            // Scanner eventleri
+            _twsService.OnScannerData -= HandleScannerData;
+            _twsService.OnScannerData += HandleScannerData;
+
+            _twsService.OnScannerEnd -= HandleScannerEnd;
+            _twsService.OnScannerEnd += HandleScannerEnd;
+
             // Se�im yap�ld���nda Entry'ye yaz
             SymbolSuggestions.SelectionChanged += (s, e) =>
             {
@@ -1562,6 +1572,104 @@ namespace ArcTriggerUI.Dashboard
             var tif = (ExpPicker?.SelectedItem as string)?.Trim().ToUpperInvariant();
             var allowed = new HashSet<string> { "DAY", "GTC", "IOC", "OPG", "PAX" };
             return !string.IsNullOrWhiteSpace(tif) && allowed.Contains(tif) ? tif : "DAY";
+        }
+
+        private int? _scannerReqId;
+        private readonly ObservableCollection<TwsService.ScannerRow> _scannerRows = new();
+
+        private void OnStartScannerClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                // aynı anda bir tane çalışsın
+                if (_scannerReqId.HasValue)
+                {
+                    _twsService.StopScanner(_scannerReqId.Value);
+                    _scannerReqId = null;
+                }
+
+                // Örnek: US major borsalarda en çok hacimli hisseler
+                var sub = new ScannerSubscription
+                {
+                    NumberOfRows = 50,
+                    Instrument = "STK",
+                    LocationCode = "STK.US.MAJOR", // NASDAQ/NYSE/AMEX
+                    ScanCode = "HOT_BY_VOLUME", // çok kullanılan preset
+                    AbovePrice = 1,               // 1$ üstü
+                    AboveVolume = 100000           // min hacim
+                };
+
+                _scannerRows.Clear();
+                _scannerReqId = _twsService.StartScanner(sub);
+            }
+            catch (Exception ex)
+            {
+                _ = ShowAlert("Scanner", ex.Message);
+            }
+        }
+
+        private void OnStopScannerClicked(object sender, EventArgs e)
+        {
+            if (_scannerReqId.HasValue)
+            {
+                _twsService.StopScanner(_scannerReqId.Value);
+                _scannerReqId = null;
+            }
+        }
+
+        private async void OnRunScannerOnceClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                var sub = new ScannerSubscription
+                {
+                    NumberOfRows = 50,
+                    Instrument = "STK",
+                    LocationCode = "STK.US.MAJOR",
+                    ScanCode = "TOP_PERC_GAIN", // tek seferlik: günün en çok yükselenleri
+                    AbovePrice = 1,
+                    AboveVolume = 100000
+                };
+
+                var list = await _twsService.RunScannerOnceAsync(sub, timeoutMs: 4000);
+                _scannerRows.Clear();
+                foreach (var row in list) _scannerRows.Add(row);
+            }
+            catch (Exception ex)
+            {
+                _ = ShowAlert("Scanner Once", ex.Message);
+            }
+        }
+
+        private void HandleScannerData(int reqId, TwsService.ScannerRow row)
+        {
+            if (_scannerReqId.HasValue && reqId != _scannerReqId.Value) return;
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                _scannerRows.Add(row);
+            });
+        }
+
+        private void HandleScannerEnd(int reqId)
+        {
+            if (_scannerReqId.HasValue && reqId != _scannerReqId.Value) return;
+
+            // istersen kullanıcıya "bitti" bildir
+            Console.WriteLine($"Scanner {reqId} finished.");
+        }
+
+        private void OnScannerSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.CurrentSelection?.FirstOrDefault() is not TwsService.ScannerRow row) return;
+
+            // UI alanlarını doldur
+            _selectedConId = row.ConId;
+            _selectedSymbol = row.Symbol;
+            _selectedSectype = string.IsNullOrWhiteSpace(row.SecType) ? "STK" : row.SecType;
+
+            SymbolSearchEntry.Text = $"{row.Symbol} {row.LongName}".Trim();
+
         }
 
     }
