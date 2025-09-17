@@ -1602,7 +1602,7 @@ namespace ArcTriggerUI.Dashboard
             "SHOP", "UPST", "TEM", "HIMS", "RKLB", "ZM",
             "ORCL", "AVGO", "COIN", "MSTR",
             "OKLO", "SOUN", "SNOW", "CRWV", "DDOG",
-            "UNH", "SMCI", "PYPL", "ARM"
+            "UNH", "SMCI", "PYPL", "ARMm"
         };
                 int count = 0;
                 // Öncelikli sembolleri koleksiyona ekle
